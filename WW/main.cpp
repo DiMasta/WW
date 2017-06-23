@@ -11,35 +11,52 @@
 
 using namespace std;
 
-const char* MOVE_BUILD_ACTION = "MOVE&BUILD";
+const string INVALID_STR = "";
+const string MOVE_BUILD_ACTION = "MOVE&BUILD";
 
+const string N = "N";
+const string NE = "NE";
+const string E = "E";
+const string SE = "SE";
+const string S = "S";
+const string SW = "SW";
+const string W = "W";
+const string NW = "NW";
+
+const int DIRECTION_COUNT = 8;
 const int INVALID_COORD = -1;
 const int INVALID_INDEX = -1;
+const int GAME_UNITS_COUNT = 2;
 
-const char* INVALID_STR= "";
+const char INVALID_CELL = '-';
+const char DOT = '.';
+const char ENEMY = 'E';
+const char ME = 'M';
+const char LEVEL_0 = '0';
+const char LEVEL_1 = '1';
+const char LEVEL_2 = '2';
+const char LEVEL_3 = '3';
 
-string N = "N";
-string NE = "NE";
-string E = "E";
-string SE = "SE";
-string S = "S";
-string SW = "SW";
-string W = "W";
-string NW = "NW";
+enum Posetion {
+	P_INAVALID_POSETION = -1,
+	P_MINE,
+	P_ENEMY,
+};
 
-string getOppositeDir(string moveDir) {
-	string oppositeMoveDir = "";
-	if (N == moveDir) { oppositeMoveDir = S; }
-	else if (NE == moveDir) { oppositeMoveDir = SW; }
-	else if (E == moveDir) { oppositeMoveDir = W; }
-	else if (SE == moveDir) { oppositeMoveDir = NW; }
-	else if (S == moveDir) { oppositeMoveDir = N; }
-	else if (SW == moveDir) { oppositeMoveDir = NE; }
-	else if (W == moveDir) { oppositeMoveDir = E; }
-	else if (NW == moveDir) { oppositeMoveDir = SE; }
+enum Direction {
+	D_INVALID_DIRECTION = -1,
+	D_N = 0,
+	D_NE,
+	D_E,
+	D_SE,
+	D_S,
+	D_SW,
+	D_W,
+	D_NW,
+};
 
-	return oppositeMoveDir;
-}
+int DIR_X[DIRECTION_COUNT] = { 0,  1, 1, 1, 0, -1, -1, -1};
+int DIR_Y[DIRECTION_COUNT] = {-1, -1, 0, 1, 1,  1,  0, -1};
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -50,8 +67,16 @@ public:
 	Coords();
 	Coords(int xCoord, int yCoord);
 
-	int getXCoord() const { return xCoord; }
-	int getYCoord() const { return yCoord; }
+	int getXCoord() const {
+		return xCoord;
+	}
+
+	int getYCoord() const {
+		return yCoord;
+	}
+
+	void setXCoord(int xCoord) { this->xCoord = xCoord; }
+	void setYCoord(int yCoord) { this->yCoord = yCoord; }
 
 	void debug() const;
 private:
@@ -85,6 +110,53 @@ Coords::Coords(
 
 void Coords::debug() const {
 	cerr << "Position: X=" << xCoord << ", Y=" << yCoord << endl;
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+class Grid {
+public:
+	Grid();
+	~Grid();
+
+	void init(int gridSize);
+private:
+	int gridSize;
+	char** grid;
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Grid::Grid() :
+	gridSize(0),
+	grid(NULL)
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Grid::~Grid() {
+	for (int rowIdx = 0; rowIdx < gridSize; ++rowIdx) {
+		delete[] grid[rowIdx];
+	}
+
+	delete[] grid;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Grid::init(int gridSize) {
+	this->gridSize = gridSize;
+
+	grid = new char*[gridSize];
+	for (int rowIdx = 0; rowIdx < gridSize; ++rowIdx) {
+		grid[rowIdx] = new char[gridSize];
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -182,15 +254,22 @@ public:
 		return legalActions;
 	}
 
-	void makeTurn();
+	Posetion getPosetion() const {
+		return posetion;
+	}
 
 	void setPosition(Coords position) { this->position = position; }
 	void setLegalactionsCount(int legalActionsCount) { this->legalActionsCount = legalActionsCount; }
 	void setLegalActions(Action* legalActions) { this->legalActions = legalActions; }
+	void setPosetion(Posetion posetion) { this->posetion = posetion; }
 
 	void initLegalactions(int legalActionsCount);
 	void fillActionData(int actionIdx, int unitIndex, string type, string moveDir, string buildDir);
 	void performAction(int actionIdx) const;
+	void move(Direction direction);
+	Coords build(Direction direction);
+	void makeTurn();
+	void init();
 
 	void debug() const;
 
@@ -198,8 +277,7 @@ private:
 	Coords position;
 	int legalActionsCount;
 	Action* legalActions;
-
-	string lastMoveDir;
+	Posetion posetion;
 };
 
 //*************************************************************************************************************
@@ -209,7 +287,7 @@ Unit::Unit() :
 	position(),
 	legalActionsCount(0),
 	legalActions(NULL),
-	lastMoveDir(INVALID_STR)
+	posetion(P_INAVALID_POSETION)
 {
 
 }
@@ -218,17 +296,13 @@ Unit::Unit() :
 //*************************************************************************************************************
 
 void Unit::makeTurn() {
-	if ("" != lastMoveDir) {
-		string opposite = getOppositeDir(lastMoveDir);
-		cout << MOVE_BUILD_ACTION << " 0 " << opposite << " " << lastMoveDir << endl;
-		lastMoveDir = opposite;
-	}
-	else {
-		string moveDir = legalActions[0].getMoveDir();
-		string opposite = getOppositeDir(moveDir);
-		cout << MOVE_BUILD_ACTION << " 0 " << moveDir << " " << opposite << endl;
-		lastMoveDir = moveDir;
-	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Unit::init() {
+
 }
 
 //*************************************************************************************************************
@@ -256,11 +330,91 @@ void Unit::performAction(int actionIdx) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Unit::move(Direction direction) {
+	position.setXCoord(position.getXCoord() + DIR_X[direction]);
+	position.setYCoord(position.getYCoord() + DIR_Y[direction]);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords Unit::build(Direction direction) {
+	int xBuildCoord = position.getXCoord() + DIR_X[direction];
+	int yBuildCoord = position.getYCoord() + DIR_Y[direction];
+
+	return Coords(xBuildCoord, yBuildCoord);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Unit::debug() const {
 	position.debug();
 	for (int actionIdx = 0; actionIdx < legalActionsCount; ++actionIdx) {
 		legalActions[actionIdx].debug();
 	}
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+class State {
+public:
+	State();
+	~State();
+
+	void simulate();
+	int evaluate() const;
+	void init(int gridSize);
+
+	void debug() const;
+private:
+	Grid grid;
+	Unit units[GAME_UNITS_COUNT];
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+State::State() :
+	grid()
+{
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		units[unitIdx].init();
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+State::~State() {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::simulate() {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int State::evaluate() const {
+	return 0;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::init(int gridSize) {
+	grid.init(gridSize);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::debug() const {
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -285,6 +439,7 @@ public:
 private:
 	int unitsCount;
 	Unit* units;
+	int score;
 };
 
 //*************************************************************************************************************
@@ -292,7 +447,8 @@ private:
 
 Player::Player() :
 	unitsCount(0),
-	units(NULL)
+	units(NULL),
+	score(0)
 {
 }
 
@@ -375,6 +531,8 @@ private:
 
 	Me* me;
 	Enemy* enemy;
+
+	State turnState;
 };
 
 //*************************************************************************************************************
@@ -406,8 +564,8 @@ Game::~Game() {
 //*************************************************************************************************************
 
 void Game::initGame() {
-	me = new Me();
-	enemy = new Enemy();
+	//me = new Me();
+	//enemy = new Enemy();
 }
 
 //*************************************************************************************************************
@@ -429,8 +587,10 @@ void Game::getGameInput() {
 	cin >> size;
 	cin >> unitsPerPlayer;
 
-	me->initUnits(unitsPerPlayer);
-	enemy->initUnits(unitsPerPlayer);
+	turnState.init(size);
+
+	//me->initUnits(unitsPerPlayer);
+	//enemy->initUnits(unitsPerPlayer);
 }
 
 //*************************************************************************************************************
@@ -446,12 +606,14 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 		cin >> unitX >> unitY;
 		me->getUnit(i)->setPosition(Coords(unitX, unitY));
+		me->getUnit(i)->setPosetion(P_MINE);
 	}
 
 	for (int i = 0; i < unitsPerPlayer; i++) {
 		int otherX, otherY;
 		cin >> otherX >> otherY;
 		enemy->getUnit(i)->setPosition(Coords(otherX, otherY));
+		enemy->getUnit(i)->setPosetion(P_ENEMY);
 	}
 
 	int legalActions;
@@ -462,7 +624,7 @@ void Game::getTurnInput() {
 		string type, dir1, dir2;
 		int index;
 		cin >> type >> index >> dir1 >> dir2;
-		//cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
+		cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
 
 		me->getUnit(index)->fillActionData(i, index, type.c_str(), dir1.c_str(), dir2.c_str());
 	}
