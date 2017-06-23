@@ -11,6 +11,8 @@
 
 using namespace std;
 
+const int USE_HARDCODED_INPUT = 0;
+
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
 
@@ -26,6 +28,7 @@ const string NW = "NW";
 const int DIRECTION_COUNT = 8;
 const int INVALID_COORD = -1;
 const int INVALID_INDEX = -1;
+const int INVALID_NODE_DEPTH = -1;
 const int GAME_UNITS_COUNT = 2;
 
 const char INVALID_CELL = '-';
@@ -36,6 +39,12 @@ const char LEVEL_0 = '0';
 const char LEVEL_1 = '1';
 const char LEVEL_2 = '2';
 const char LEVEL_3 = '3';
+
+enum MiniMaxActionType {
+	MMAT_INVALID = -1,
+	MMAT_MOVE,
+	MMAT_BUILD,
+};
 
 enum Posetion {
 	P_INAVALID_POSETION = -1,
@@ -121,6 +130,7 @@ public:
 	Grid();
 	~Grid();
 
+	void setCell(int rowIdx, int colIdx, char c);
 	void init(int gridSize);
 private:
 	int gridSize;
@@ -145,6 +155,13 @@ Grid::~Grid() {
 	}
 
 	delete[] grid;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Grid::setCell(int rowIdx, int colIdx, char c) {
+	grid[rowIdx][colIdx] = c;
 }
 
 //*************************************************************************************************************
@@ -238,6 +255,52 @@ void Action::debug() const {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+class MiniMaxAction {
+public:
+	MiniMaxAction();
+	MiniMaxAction(MiniMaxActionType type, Coords coords);
+
+	MiniMaxActionType getType() const {
+		return type;
+	}
+
+	Coords getCoords() const {
+		return coords;
+	}
+
+	void setType(MiniMaxActionType type) { this->type = type; }
+	void setCoords(Coords coords) { this->coords = coords; }
+
+private:
+	MiniMaxActionType type;
+	Coords coords;
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MiniMaxAction::MiniMaxAction() :
+	type(MMAT_INVALID),
+	coords()
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MiniMaxAction::MiniMaxAction(
+	MiniMaxActionType type,
+	Coords coords
+) :
+	type(type),
+	coords(coords)
+{
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 class Unit {
 public:
 	Unit();
@@ -278,6 +341,8 @@ private:
 	int legalActionsCount;
 	Action* legalActions;
 	Posetion posetion;
+	int minimaxActionsCount;
+	MiniMaxAction* minimaxActions;
 };
 
 //*************************************************************************************************************
@@ -287,9 +352,10 @@ Unit::Unit() :
 	position(),
 	legalActionsCount(0),
 	legalActions(NULL),
-	posetion(P_INAVALID_POSETION)
+	posetion(P_INAVALID_POSETION),
+	minimaxActionsCount(0),
+	minimaxActions(NULL)
 {
-
 }
 
 //*************************************************************************************************************
@@ -364,9 +430,14 @@ public:
 	State();
 	~State();
 
+	Grid getGrid() const {
+		return grid;
+	}
+
 	void simulate();
 	int evaluate() const;
 	void init(int gridSize);
+	void setMiniMaxUnitTurnActions();
 
 	void debug() const;
 private:
@@ -409,6 +480,17 @@ int State::evaluate() const {
 
 void State::init(int gridSize) {
 	grid.init(gridSize);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::setMiniMaxUnitTurnActions() {
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
+
+		}
+	}
 }
 
 //*************************************************************************************************************
@@ -508,6 +590,102 @@ private:
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
+class Node {
+public:
+	Node();
+
+	void setState(const State& state) { this->state = state; }
+	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
+
+	Node* createChild();
+	void addChild(Node* child);
+	void deleteTree();
+
+private:
+	int nodeDepth;
+	State state;
+	Node* parent;
+	Node* children;
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Node::Node() :
+	nodeDepth(INVALID_NODE_DEPTH),
+	state(),
+	parent(NULL),
+	children(NULL)
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Node* Node::createChild() {
+	return nullptr;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::addChild(Node* child) {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::deleteTree() {
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+class MiniMax {
+public:
+	MiniMax();
+	~MiniMax();
+
+	void init(const State& state);
+	void run();
+private:
+	Node tree;
+};
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MiniMax::MiniMax() :
+	tree()
+{
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MiniMax::~MiniMax() {
+	tree.deleteTree();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MiniMax::init(const State& state) {
+	tree.setNodeDepth(0);
+	tree.setState(state);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MiniMax::run() {
+}
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
 class Game {
 public:
 	Game();
@@ -533,6 +711,7 @@ private:
 	Enemy* enemy;
 
 	State turnState;
+	MiniMax minimax;
 };
 
 //*************************************************************************************************************
@@ -541,7 +720,9 @@ private:
 Game::Game() :
 	turnsCount(0),
 	size(0),
-	unitsPerPlayer(0)
+	unitsPerPlayer(0),
+	turnState(),
+	minimax()
 {
 }
 
@@ -584,10 +765,19 @@ void Game::gameLoop() {
 //*************************************************************************************************************
 
 void Game::getGameInput() {
-	cin >> size;
-	cin >> unitsPerPlayer;
+	if (USE_HARDCODED_INPUT) {
+		size = 0;
+		unitsPerPlayer = 0;
+	}
+	else {
+		cin >> size;
+		cin >> unitsPerPlayer;
 
-	turnState.init(size);
+		//cerr << "size=" << size << endl;
+		//cerr << "unitsPerPlayer" << unitsPerPlayer << endl;
+	}
+
+	turnState.getGrid().init(size);
 
 	//me->initUnits(unitsPerPlayer);
 	//enemy->initUnits(unitsPerPlayer);
@@ -597,9 +787,12 @@ void Game::getGameInput() {
 //*************************************************************************************************************
 
 void Game::getTurnInput() {
-	for (int i = 0; i < size; i++) {
-		string row;
-		cin >> row;
+	for (int rowIdx = 0; rowIdx < size; ++rowIdx) {
+		for (int colIdx = 0; colIdx < size; ++colIdx) {
+			char c;
+			cin >> c;
+			turnState.getGrid().setCell(rowIdx, colIdx, c);
+		}
 	}
 
 	for (int i = 0; i < unitsPerPlayer; i++) {
@@ -624,7 +817,7 @@ void Game::getTurnInput() {
 		string type, dir1, dir2;
 		int index;
 		cin >> type >> index >> dir1 >> dir2;
-		cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
+		//cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
 
 		me->getUnit(index)->fillActionData(i, index, type.c_str(), dir1.c_str(), dir2.c_str());
 	}
@@ -634,13 +827,15 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
+
+	minimax.init(turnState);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	me->getUnit(0)->makeTurn();
+	minimax.run();
 }
 
 //*************************************************************************************************************
