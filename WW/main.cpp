@@ -16,17 +16,30 @@ const char* MOVE_BUILD_ACTION = "MOVE&BUILD";
 const int INVALID_COORD = -1;
 const int INVALID_INDEX = -1;
 
-enum Direction {
-	INVALID_DIR = -1,
-	N = 0,
-	NE,
-	E,
-	SE,
-	S,
-	SW,
-	W,
-	NW
-};
+const char* INVALID_STR= "";
+
+string N = "N";
+string NE = "NE";
+string E = "E";
+string SE = "SE";
+string S = "S";
+string SW = "SW";
+string W = "W";
+string NW = "NW";
+
+string getOppositeDir(string moveDir) {
+	string oppositeMoveDir = "";
+	if (N == moveDir) { oppositeMoveDir = S; }
+	else if (NE == moveDir) { oppositeMoveDir = SW; }
+	else if (E == moveDir) { oppositeMoveDir = W; }
+	else if (SE == moveDir) { oppositeMoveDir = NW; }
+	else if (S == moveDir) { oppositeMoveDir = N; }
+	else if (SW == moveDir) { oppositeMoveDir = NE; }
+	else if (W == moveDir) { oppositeMoveDir = E; }
+	else if (NW == moveDir) { oppositeMoveDir = SE; }
+
+	return oppositeMoveDir;
+}
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -82,31 +95,41 @@ class Action {
 public:
 	Action();
 
-	void filldata(const char* type, const char* moveDir, const char* buildDir);
+	void filldata(string type, int unitIndex, string moveDir, string buildDir);
+	void perform() const;
+	void perFormInverse() const;
+	bool isValid() const;
+
+	string getMoveDir() const {
+		return moveDir;
+	}
 
 	void debug() const;
 
 private:
-	const char* type;
-	const char* moveDir;
-	const char* buildDir;
+	string type;
+	int unitIndex;
+	string moveDir;
+	string buildDir;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Action::Action() :
-	type(""),
-	moveDir(""),
-	buildDir("")
+	type(INVALID_STR),
+	unitIndex(INVALID_INDEX),
+	moveDir(INVALID_STR),
+	buildDir(INVALID_STR)
 {
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Action::filldata(const char* type, const char* moveDir, const char* buildDir) {
+void Action::filldata(string type, int unitIndex, string moveDir, string buildDir) {
 	this->type = type;
+	this->unitIndex = unitIndex;
 	this->moveDir = moveDir;
 	this->buildDir = buildDir;
 }
@@ -114,10 +137,29 @@ void Action::filldata(const char* type, const char* moveDir, const char* buildDi
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Action::perform() const {
+	cout << type << ' ' << unitIndex << ' ' << moveDir << ' ' << buildDir << endl;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Action::perFormInverse() const {
+	cout << type << ' ' << unitIndex << ' ' << moveDir << ' ' << buildDir << endl;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Action::isValid() const {
+	return INVALID_INDEX != unitIndex;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Action::debug() const {
-	cerr << "Type=" << type << endl;
-	cerr << "Move dir=" << moveDir << endl;
-	cerr << "Build dir=" << buildDir << endl;
+	cerr << "Type=" << type << " Move dir=" << moveDir << " Build dir=" << buildDir << endl;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -140,12 +182,15 @@ public:
 		return legalActions;
 	}
 
+	void makeTurn();
+
 	void setPosition(Coords position) { this->position = position; }
 	void setLegalactionsCount(int legalActionsCount) { this->legalActionsCount = legalActionsCount; }
 	void setLegalActions(Action* legalActions) { this->legalActions = legalActions; }
 
 	void initLegalactions(int legalActionsCount);
-	void fillActionData(int actionIdx, const char* type, const char* moveDir, const char* buildDir);
+	void fillActionData(int actionIdx, int unitIndex, string type, string moveDir, string buildDir);
+	void performAction(int actionIdx) const;
 
 	void debug() const;
 
@@ -153,6 +198,8 @@ private:
 	Coords position;
 	int legalActionsCount;
 	Action* legalActions;
+
+	string lastMoveDir;
 };
 
 //*************************************************************************************************************
@@ -161,9 +208,27 @@ private:
 Unit::Unit() :
 	position(),
 	legalActionsCount(0),
-	legalActions(NULL)
+	legalActions(NULL),
+	lastMoveDir(INVALID_STR)
 {
 
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Unit::makeTurn() {
+	if ("" != lastMoveDir) {
+		string opposite = getOppositeDir(lastMoveDir);
+		cout << MOVE_BUILD_ACTION << " 0 " << opposite << " " << lastMoveDir << endl;
+		lastMoveDir = opposite;
+	}
+	else {
+		string moveDir = legalActions[0].getMoveDir();
+		string opposite = getOppositeDir(moveDir);
+		cout << MOVE_BUILD_ACTION << " 0 " << moveDir << " " << opposite << endl;
+		lastMoveDir = moveDir;
+	}
 }
 
 //*************************************************************************************************************
@@ -177,8 +242,15 @@ void Unit::initLegalactions(int legalActionsCount) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Unit::fillActionData(int actionIdx, const char* type, const char* moveDir, const char* buildDir) {
-	legalActions[actionIdx].filldata(type, moveDir, buildDir);
+void Unit::fillActionData(int actionIdx, int unitIndex, string type, string moveDir, string buildDir) {
+	legalActions[actionIdx].filldata(type, unitIndex, moveDir, buildDir);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Unit::performAction(int actionIdx) const {
+	legalActions[actionIdx].perform();
 }
 
 //*************************************************************************************************************
@@ -392,7 +464,7 @@ void Game::getTurnInput() {
 		cin >> type >> index >> dir1 >> dir2;
 		//cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
 
-		me->getUnit(index)->fillActionData(i, type.c_str(), dir1.c_str(), dir2.c_str());
+		me->getUnit(index)->fillActionData(i, index, type.c_str(), dir1.c_str(), dir2.c_str());
 	}
 }
 
@@ -406,7 +478,7 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	cout << "MOVE&BUILD 0 N S" << endl;
+	me->getUnit(0)->makeTurn();
 }
 
 //*************************************************************************************************************
