@@ -12,7 +12,7 @@
 using namespace std;
 
 const int USE_HARDCODED_INPUT = 1;
-const int MINIMAX_DEPTH = 2;
+const int MINIMAX_DEPTH = 4;
 
 const int SCORE_WEIGHT = 800;
 const int LEVELS_WEIGHT = 200;
@@ -1016,6 +1016,7 @@ void Minimax::init(const State& state) {
 
 void Minimax::run() {
 	MinimaxResult res = maximize(tree, UI_MY_UNIT, INT_MIN, INT_MAX);
+	backtrack(res.bestLeaveNode);
 }
 
 //*************************************************************************************************************
