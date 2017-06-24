@@ -11,7 +11,7 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 0;
+const int USE_HARDCODED_INPUT = 1;
 
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
@@ -30,6 +30,7 @@ const int INVALID_COORD = -1;
 const int INVALID_INDEX = -1;
 const int INVALID_NODE_DEPTH = -1;
 const int GAME_UNITS_COUNT = 2;
+const int PLAYER_UNITS_COUNT = 1;
 
 const char INVALID_CELL = '-';
 const char DOT = '.';
@@ -430,7 +431,7 @@ public:
 	State();
 	~State();
 
-	Grid getGrid() const {
+	Grid* getGrid() const {
 		return grid;
 	}
 
@@ -438,10 +439,11 @@ public:
 	int evaluate() const;
 	void init(int gridSize);
 	void setMiniMaxUnitTurnActions();
+	Unit& getUnit(int unitIdx) { return units[unitIdx]; }
 
 	void debug() const;
 private:
-	Grid grid;
+	Grid* grid;
 	Unit units[GAME_UNITS_COUNT];
 };
 
@@ -460,6 +462,10 @@ State::State() :
 //*************************************************************************************************************
 
 State::~State() {
+	if (grid) {
+		delete grid;
+		grid = NULL;
+	}
 }
 
 //*************************************************************************************************************
@@ -479,7 +485,8 @@ int State::evaluate() const {
 //*************************************************************************************************************
 
 void State::init(int gridSize) {
-	grid.init(gridSize);
+	grid = new Grid();
+	grid->init(gridSize);
 }
 
 //*************************************************************************************************************
@@ -498,93 +505,6 @@ void State::setMiniMaxUnitTurnActions() {
 
 void State::debug() const {
 }
-
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-
-class Player {
-public:
-	Player();
-	~Player();
-
-	int getUnitsCount() const {
-		return unitsCount;
-	}
-
-	void setUnitsCount(int unitsCount) { this->unitsCount = unitsCount; }
-
-	void initUnits(int unitsCount);
-	Unit* getUnit(int index) const;
-
-	void debug() const;
-private:
-	int unitsCount;
-	Unit* units;
-	int score;
-};
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Player::Player() :
-	unitsCount(0),
-	units(NULL),
-	score(0)
-{
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Player::~Player() {
-	if (units) {
-		delete[] units;
-		units = NULL;
-	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Player::initUnits(int unitsCount) {
-	this->unitsCount = unitsCount;
-	units = new Unit[unitsCount];
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-Unit* Player::getUnit(int index) const {
-	return (units + index);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Player::debug() const {
-	for (int unitIdx = 0; unitIdx < unitsCount; ++unitIdx) {
-		units[unitIdx].debug();
-	}
-}
-
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-
-class Me : public Player {
-public:
-private:
-};
-
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-//-------------------------------------------------------------------------------------------------------------
-
-class Enemy : public Player {
-public:
-private:
-};
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -707,9 +627,6 @@ private:
 	int size;
 	int unitsPerPlayer;
 
-	Me* me;
-	Enemy* enemy;
-
 	State turnState;
 	MiniMax minimax;
 };
@@ -730,23 +647,12 @@ Game::Game() :
 //*************************************************************************************************************
 
 Game::~Game() {
-	if (me) {
-		delete me;
-		me = NULL;
-	}
-
-	if (enemy) {
-		delete enemy;
-		enemy = NULL;
-	}
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Game::initGame() {
-	//me = new Me();
-	//enemy = new Enemy();
 }
 
 //*************************************************************************************************************
@@ -766,8 +672,8 @@ void Game::gameLoop() {
 
 void Game::getGameInput() {
 	if (USE_HARDCODED_INPUT) {
-		size = 0;
-		unitsPerPlayer = 0;
+		size = 5;
+		unitsPerPlayer = 1;
 	}
 	else {
 		cin >> size;
@@ -777,10 +683,7 @@ void Game::getGameInput() {
 		//cerr << "unitsPerPlayer" << unitsPerPlayer << endl;
 	}
 
-	turnState.getGrid().init(size);
-
-	//me->initUnits(unitsPerPlayer);
-	//enemy->initUnits(unitsPerPlayer);
+	turnState.init(size);
 }
 
 //*************************************************************************************************************
@@ -790,36 +693,54 @@ void Game::getTurnInput() {
 	for (int rowIdx = 0; rowIdx < size; ++rowIdx) {
 		for (int colIdx = 0; colIdx < size; ++colIdx) {
 			char c;
-			cin >> c;
-			turnState.getGrid().setCell(rowIdx, colIdx, c);
+
+			if (USE_HARDCODED_INPUT) {
+				c = LEVEL_0;
+			}
+			else {
+				cin >> c;
+				cerr << c;
+			}
+
+			turnState.getGrid()->setCell(rowIdx, colIdx, c);
 		}
+		//cerr << endl;
 	}
 
-	for (int i = 0; i < unitsPerPlayer; i++) {
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
 		int unitX, unitY;
-		cin >> unitX >> unitY;
-		me->getUnit(i)->setPosition(Coords(unitX, unitY));
-		me->getUnit(i)->setPosetion(P_MINE);
+
+		if (USE_HARDCODED_INPUT) {
+			if (0 == unitIdx) { unitX = 3; unitY = 0; }
+			if (1 == unitIdx) { unitX = 0; unitY = 0; }
+		}
+		else {
+			cin >> unitX >> unitY;
+			cerr << unitX << ' ' << unitY << endl;
+		}
+
+		Posetion posetion = P_MINE;
+		if (unitIdx >= PLAYER_UNITS_COUNT) {
+			posetion = P_ENEMY;
+		}
+
+		turnState.getUnit(unitIdx).setPosition(Coords(unitX, unitY));
+		turnState.getUnit(unitIdx).setPosetion(posetion);
 	}
 
-	for (int i = 0; i < unitsPerPlayer; i++) {
-		int otherX, otherY;
-		cin >> otherX >> otherY;
-		enemy->getUnit(i)->setPosition(Coords(otherX, otherY));
-		enemy->getUnit(i)->setPosetion(P_ENEMY);
-	}
+	if (!USE_HARDCODED_INPUT) {
+		int legalActions;
+		cin >> legalActions;
+		//me->getUnit(0)->initLegalactions(legalActions);
 
-	int legalActions;
-	cin >> legalActions;
-	me->getUnit(0)->initLegalactions(legalActions);
+		for (int i = 0; i < legalActions; i++) {
+			string type, dir1, dir2;
+			int index;
+			cin >> type >> index >> dir1 >> dir2;
+			//cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
 
-	for (int i = 0; i < legalActions; i++) {
-		string type, dir1, dir2;
-		int index;
-		cin >> type >> index >> dir1 >> dir2;
-		//cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
-
-		me->getUnit(index)->fillActionData(i, index, type.c_str(), dir1.c_str(), dir2.c_str());
+			//me->getUnit(index)->fillActionData(i, index, type.c_str(), dir1.c_str(), dir2.c_str());
+		}
 	}
 }
 
@@ -827,7 +748,6 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
-
 	minimax.init(turnState);
 }
 
