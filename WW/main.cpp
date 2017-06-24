@@ -12,7 +12,7 @@
 using namespace std;
 
 const int USE_HARDCODED_INPUT = 1;
-const int MINIMAX_DEPTH = 6;
+const int MINIMAX_DEPTH = 2;
 
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
@@ -462,7 +462,7 @@ Unit::Unit() :
 
 Unit::~Unit() {
 	if (minimaxActions) {
-		delete minimaxActions;
+		delete[] minimaxActions;
 		minimaxActions = NULL;
 	}
 }
@@ -730,6 +730,14 @@ public:
 		return parent;
 	}
 
+	int getChildrenCount() const {
+		return childrenCount;
+	}
+
+	Node** getChildren() const {
+		return children;
+	}
+
 	void setState(State* state) { this->state = state; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
 	void setNodeAction(MinimaxActionType nodeAction) { this->nodeAction = nodeAction; }
@@ -743,7 +751,6 @@ public:
 		MinimaxActionType typeForChildren
 	);
 	void addChild(Node* child);
-	void deleteTree();
 	void copyState(const State& state);
 	void init(int gridSize);
 
@@ -752,7 +759,7 @@ private:
 	State* state;
 	Node* parent;
 	int childrenCount;
-	Node* children;
+	Node** children;
 	MinimaxActionType nodeAction;
 };
 
@@ -773,6 +780,10 @@ Node::Node() :
 //*************************************************************************************************************
 
 Node::~Node() {
+	if (state) {
+		delete state;
+		state = NULL;
+	}
 }
 
 //*************************************************************************************************************
@@ -805,22 +816,16 @@ Node* Node::createChild(
 
 void Node::addChild(Node* child) {
 	++childrenCount;
-	Node* temp = new Node[childrenCount];
+	Node** temp = new Node*[childrenCount];
 
 	for (int childIdx = 0; childIdx < childrenCount - 1; ++childIdx) {
 		temp[childIdx] = children[childIdx];
 	}
 
-	temp[childrenCount - 1] = *child;
+	temp[childrenCount - 1] = child;
 
 	delete[] children;
-	children = temp; 
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Node::deleteTree() {
+	children = temp;
 }
 
 //*************************************************************************************************************
@@ -867,19 +872,21 @@ public:
 	MinimaxActionType currentActionType(MinimaxActionType parentAction, MaximizeMinimize mm) const;
 	void init(const State& state);
 	void run();
+	void deleteTree(Node* node);
+	void clear();
 
 	MinimaxResult maximize(Node* node, int unitIdx, int alpha, int beta);
 	MinimaxResult minimize(Node* node, int unitIdx, int alpha, int beta);
 
 private:
-	Node tree;
+	Node* tree;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Minimax::Minimax() :
-	tree()
+	tree(NULL)
 {
 }
 
@@ -887,7 +894,6 @@ Minimax::Minimax() :
 //*************************************************************************************************************
 
 Minimax::~Minimax() {
-	tree.deleteTree();
 }
 
 //*************************************************************************************************************
@@ -919,17 +925,44 @@ MinimaxActionType Minimax::currentActionType(MinimaxActionType parentAction, Max
 //*************************************************************************************************************
 
 void Minimax::init(const State& state) {
-	tree.init(state.getGrid()->getGridSize());
-	tree.setNodeDepth(0);
-	tree.setNodeAction(MMAT_BUILD);
-	tree.copyState(state);
+	tree = new Node();
+	tree->init(state.getGrid()->getGridSize());
+	tree->setNodeDepth(0);
+	tree->setNodeAction(MMAT_BUILD);
+	tree->copyState(state);
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Minimax::run() {
-	MinimaxResult res = maximize(&tree, UI_MY_UNIT, INT_MIN, INT_MAX);
+	MinimaxResult res = maximize(tree, UI_MY_UNIT, INT_MIN, INT_MAX);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Minimax::deleteTree(Node* node) {
+	if (node) {
+		int childrenCount = node->getChildrenCount();
+		Node** children = node->getChildren();
+
+		delete node;
+		node = NULL;
+
+		for (int childIdx = 0; childIdx < childrenCount; ++childIdx) {
+			deleteTree(children[childIdx]);
+		}
+
+		delete[] children;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Minimax::clear() {
+	deleteTree(tree);
 }
 
 //*************************************************************************************************************
@@ -1184,6 +1217,7 @@ void Game::makeTurn() {
 
 void Game::turnEnd() {
 	++turnsCount;
+	minimax.clear();
 }
 
 //*************************************************************************************************************
