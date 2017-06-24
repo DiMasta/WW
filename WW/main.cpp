@@ -737,6 +737,7 @@ private:
 	int nodeDepth;
 	State* state;
 	Node* parent;
+	int childrenCount;
 	Node* children;
 	MinimaxActionType nodeAction;
 };
@@ -748,6 +749,7 @@ Node::Node() :
 	nodeDepth(INVALID_NODE_DEPTH),
 	state(),
 	parent(NULL),
+	childrenCount(0),
 	children(NULL),
 	nodeAction(MMAT_INVALID)
 {
@@ -779,6 +781,17 @@ Node* Node::createChild(int unitIdx, int actionIdx) {
 //*************************************************************************************************************
 
 void Node::addChild(Node* child) {
+	++childrenCount;
+	Node* temp = new Node[childrenCount];
+
+	for (int childIdx = 0; childIdx < childrenCount - 1; ++childIdx) {
+		temp[childIdx] = children[childIdx];
+	}
+
+	temp[childrenCount - 1] = *child;
+
+	delete[] children;
+	children = temp;
 }
 
 //*************************************************************************************************************
@@ -935,6 +948,7 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 
 MinimaxResult Minimax::minimize(Node * node, int unitIdx, int alpha, int beta) {
 	State* state = node->getState();
+	Unit* unit = state->getUnit(unitIdx);
 
 	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
 		int eval = state->evaluate();
@@ -943,8 +957,14 @@ MinimaxResult Minimax::minimize(Node * node, int unitIdx, int alpha, int beta) {
 
 	MinimaxResult res = MinimaxResult(NULL, INT_MAX);
 
-	int minimaxActionsCount = state->getUnit(unitIdx)->getMinimaxActionsCout();
+	const MinimaxActionType typeForChildren = currentActionType(node->getNodeAction(), MM_MINIMIZE);
+	int minimaxActionsCount = unit->getMinimaxActionsCout();
+
 	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
+		if (typeForChildren != unit->getMinimaxAction(actionIdx).getType()) {
+			continue;
+		}
+
 		Node* child = node->createChild(unitIdx, actionIdx);
 		node->addChild(child);
 
