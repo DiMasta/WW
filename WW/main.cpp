@@ -14,6 +14,9 @@ using namespace std;
 const int USE_HARDCODED_INPUT = 1;
 const int MINIMAX_DEPTH = 2;
 
+const int SCORE_WEIGHT = 800;
+const int LEVELS_WEIGHT = 200;
+
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
 
@@ -156,6 +159,7 @@ public:
 	bool playableCell(Coords positon) const;
 	void copy(Grid* grid);
 	void build(Coords coords);
+	int getSurroundingLevels(Coords coords) const;
 
 private:
 	int gridSize;
@@ -269,6 +273,24 @@ void Grid::copy(Grid* grid) {
 
 void Grid::build(Coords coords) {
 	setCell(coords, getCell(coords) + 1);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int Grid::getSurroundingLevels(Coords coords) const {
+	int surroudingLevels = 0;
+
+	for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
+		Coords newPosition;
+		newPosition.setXCoord(coords.getXCoord() + DIR_X[dirIdx]);
+		newPosition.setYCoord(coords.getYCoord() + DIR_Y[dirIdx]);
+
+		if (validPosition(newPosition)) {
+			surroudingLevels += getCell(newPosition) - LEVEL_0;
+		}
+	}
+	return 0;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -426,6 +448,10 @@ public:
 		return minimaxActions[actionIdx];
 	}
 
+	int getScore() const {
+		return score;
+	}
+
 	void setPosition(Coords position) { this->position = position; }
 	void setPosetion(Posetion posetion) { this->posetion = posetion; }
 
@@ -436,6 +462,7 @@ public:
 	void addMinimaxAction(MinimaxAction newAction);
 	void copy(Unit* unit);
 	void move(Coords coords);
+	void incrementScore();
 
 	void debug() const;
 
@@ -444,6 +471,7 @@ private:
 	Posetion posetion;
 	int minimaxActionsCount;
 	MinimaxAction* minimaxActions;
+	int score;
 };
 
 //*************************************************************************************************************
@@ -453,7 +481,8 @@ Unit::Unit() :
 	position(),
 	posetion(P_INAVALID_POSETION),
 	minimaxActionsCount(0),
-	minimaxActions(NULL)
+	minimaxActions(NULL),
+	score(0)
 {
 }
 
@@ -517,6 +546,13 @@ void Unit::copy(Unit* unit) {
 
 void Unit::move(Coords coords) {
 	position = coords;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Unit::incrementScore() {
+	++score;
 }
 
 //*************************************************************************************************************
@@ -608,9 +644,14 @@ State::~State() {
 void State::simulate(int unitIdx, MinimaxAction action) {
 	if (MMAT_MOVE == action.getType()) {
 		units[unitIdx]->move(action.getCoords());
+		char cell = grid->getCell(action.getCoords());
+		if (LEVEL_3 == cell) {
+			units[unitIdx]->incrementScore();
+		}
 	}
 	else if (MMAT_BUILD == action.getType()) {
 		grid->build(action.getCoords());
+		grid->setCell(action.getCoords(), grid->getCell(action.getCoords()) + 1);
 	}
 
 	setMiniMaxUnitTurnActions();
@@ -620,7 +661,29 @@ void State::simulate(int unitIdx, MinimaxAction action) {
 //*************************************************************************************************************
 
 int State::evaluate() const {
-	return 0;
+	int score = 0;
+	int surroundingLevels = 0;
+
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		Unit* unit = units[unitIdx];
+		Posetion posetion = unit->getPosetion();
+
+		int unitScore = unit->getScore();
+		int unitSurroundingLevels = grid->getSurroundingLevels(unit->getPosition());
+
+		if (P_MINE == posetion) {
+			score += unitScore;
+			surroundingLevels += unitSurroundingLevels;
+		}
+		else {
+			score -= unitScore;
+			surroundingLevels -= unitSurroundingLevels;
+		}
+	}
+
+	int heuristic = (score * SCORE_WEIGHT) + (surroundingLevels * LEVELS_WEIGHT);
+
+	return heuristic;
 }
 
 //*************************************************************************************************************
