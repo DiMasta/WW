@@ -35,6 +35,8 @@ const int INVALID_INDEX = -1;
 const int INVALID_NODE_DEPTH = -1;
 const int GAME_UNITS_COUNT = 2;
 const int PLAYER_UNITS_COUNT = 1;
+const int BUILD_NODE_DEPTH = 3;
+const int MOVE_NODE_DEPTH = 1;
 
 const char INVALID_CELL = '-';
 const char DOT = '.';
@@ -940,24 +942,38 @@ public:
 	Minimax();
 	~Minimax();
 
+	Coords getBuildCoords() const {
+		return buildCoords;
+	}
+
+	Coords getMoveCoords() const {
+		return moveCoords;
+	}
+
 	MinimaxActionType currentActionType(MinimaxActionType parentAction, MaximizeMinimize mm) const;
 	void init(const State& state);
 	void run();
 	void deleteTree(Node* node);
 	void clear();
+	void backtrack(Node* node);
 
 	MinimaxResult maximize(Node* node, int unitIdx, int alpha, int beta);
 	MinimaxResult minimize(Node* node, int unitIdx, int alpha, int beta);
 
 private:
 	Node* tree;
+
+	Coords buildCoords;
+	Coords moveCoords;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Minimax::Minimax() :
-	tree(NULL)
+	tree(NULL),
+	buildCoords(),
+	moveCoords()
 {
 }
 
@@ -1034,6 +1050,25 @@ void Minimax::deleteTree(Node* node) {
 
 void Minimax::clear() {
 	deleteTree(tree);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Minimax::backtrack(Node* node) {
+	if (BUILD_NODE_DEPTH == node->getNodeDepth()) {
+		buildCoords = node->getAction().getCoords();
+	}
+
+	if (MOVE_NODE_DEPTH == node->getNodeDepth()) {
+		moveCoords = node->getAction().getCoords();;
+	}
+
+	Node* parent = node->getParent();
+
+	if (parent) {
+		backtrack(parent);
+	}
 }
 
 //*************************************************************************************************************
