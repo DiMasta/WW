@@ -457,7 +457,6 @@ public:
 
 	void move(Direction direction);
 	Coords build(Direction direction);
-	void makeTurn();
 	void init(int minimaxActionsCount);
 	void addMinimaxAction(MinimaxAction newAction);
 	void copy(Unit* unit);
@@ -494,12 +493,6 @@ Unit::~Unit() {
 		delete[] minimaxActions;
 		minimaxActions = NULL;
 	}
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Unit::makeTurn() {
 }
 
 //*************************************************************************************************************
@@ -801,8 +794,8 @@ public:
 		return state;
 	}
 
-	MinimaxActionType getNodeAction() const {
-		return nodeAction;
+	MinimaxAction getAction() const {
+		return action;
 	}
 
 	Node* getParent() const {
@@ -819,15 +812,14 @@ public:
 
 	void setState(State* state) { this->state = state; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
-	void setNodeAction(MinimaxActionType nodeAction) { this->nodeAction = nodeAction; }
+	void setNodeAction(MinimaxAction action) { this->action = action; }
 	void setParent(Node* parent) { this->parent = parent; }
 
 	Node* createChild(
 		int unitIdx,
 		int actionIdx,
 		Node* parent,
-		int nodeDepth,
-		MinimaxActionType typeForChildren
+		int nodeDepth
 	);
 	void addChild(Node* child);
 	void copyState(const State& state);
@@ -839,7 +831,7 @@ private:
 	Node* parent;
 	int childrenCount;
 	Node** children;
-	MinimaxActionType nodeAction;
+	MinimaxAction action;
 };
 
 //*************************************************************************************************************
@@ -851,7 +843,7 @@ Node::Node() :
 	parent(NULL),
 	childrenCount(0),
 	children(NULL),
-	nodeAction(MMAT_INVALID)
+	action()
 {
 }
 
@@ -872,18 +864,18 @@ Node* Node::createChild(
 	int unitIdx,
 	int actionIdx,
 	Node* parent,
-	int nodeDepth,
-	MinimaxActionType typeForChildren
+	int nodeDepth
 ) {
 	Node* child = new Node();
 	child->init(state->getGrid()->getGridSize());
 	child->copyState(*state);
 	child->setNodeDepth(nodeDepth);
 	child->setParent(parent);
-	child->setNodeAction(typeForChildren);
 
 	Unit* unit = child->state->getUnit(unitIdx);
 	MinimaxAction action = unit->getMinimaxAction(actionIdx);
+
+	child->setNodeAction(action);
 
 	child->getState()->simulate(unitIdx, action);
 
@@ -1007,7 +999,7 @@ void Minimax::init(const State& state) {
 	tree = new Node();
 	tree->init(state.getGrid()->getGridSize());
 	tree->setNodeDepth(0);
-	tree->setNodeAction(MMAT_BUILD);
+	tree->setNodeAction(MinimaxAction(MMAT_BUILD, Coords()));
 	tree->copyState(state);
 }
 
@@ -1058,7 +1050,7 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 
 	MinimaxResult res = MinimaxResult(NULL, INT_MIN);
 
-	const MinimaxActionType typeForChildren = currentActionType(node->getNodeAction(), MM_MAXIMIZE);
+	const MinimaxActionType typeForChildren = currentActionType(node->getAction().getType(), MM_MAXIMIZE);
 	int minimaxActionsCount = unit->getMinimaxActionsCout();
 
 	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
@@ -1066,7 +1058,7 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 			continue;
 		}
 
-		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth() + 1, typeForChildren);
+		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth() + 1);
 		node->addChild(child);
 
 		MinimaxResult minRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
@@ -1101,7 +1093,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 
 	MinimaxResult res = MinimaxResult(NULL, INT_MAX);
 
-	const MinimaxActionType typeForChildren = currentActionType(node->getNodeAction(), MM_MINIMIZE);
+	const MinimaxActionType typeForChildren = currentActionType(node->getAction().getType(), MM_MINIMIZE);
 	int minimaxActionsCount = unit->getMinimaxActionsCout();
 
 	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
@@ -1109,7 +1101,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 			continue;
 		}
 
-		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth(), typeForChildren);
+		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth());
 		node->addChild(child);
 
 		MinimaxResult maxRes = maximize(child, UI_MY_UNIT, alpha, beta);
@@ -1258,8 +1250,9 @@ void Game::getTurnInput() {
 
 		turnState.setUnitPosition(unitIdx, Coords(unitX, unitY));
 		turnState.setUnitPosetion(unitIdx, posetion);
-		turnState.updateScore();
 	}
+
+	turnState.updateScore();
 
 	if (!USE_HARDCODED_INPUT) {
 		int legalActions;
