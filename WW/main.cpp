@@ -8,6 +8,7 @@
 #include <math.h>
 #include <climits>
 #include <ctime>
+#include <fstream>
 
 using namespace std;
 
@@ -19,6 +20,7 @@ const int LEVELS_WEIGHT = 200;
 
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
+const string PARENT_PATH = "P";
 
 const int DIRECTION_COUNT = 8;
 const int INVALID_COORD = -1;
@@ -29,6 +31,7 @@ const int PLAYER_UNITS_COUNT = 1;
 const int BUILD_NODE_DEPTH = 3;
 const int MOVE_NODE_DEPTH = 1;
 
+const char PARENT_LABEL = 'P';
 const char INVALID_CELL = '-';
 const char DOT = '.';
 const char ENEMY = 'E';
@@ -804,10 +807,20 @@ public:
 		return children;
 	}
 
+	string getPath() const {
+		return path;
+	}
+
+	Node* getChild(int childIdx) const {
+		return children[childIdx];
+	}
+
 	void setState(State* state) { this->state = state; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
 	void setNodeAction(MinimaxAction action) { this->action = action; }
 	void setParent(Node* parent) { this->parent = parent; }
+	void setLabel(char label) { this->label = label; }
+	void setPath(string path) { this->path = path; }
 
 	Node* createChild(
 		int unitIdx,
@@ -818,6 +831,7 @@ public:
 	void addChild(Node* child);
 	void copyState(const State& state);
 	void init(int gridSize);
+	void setTreePath();
 
 private:
 	int nodeDepth;
@@ -826,6 +840,9 @@ private:
 	int childrenCount;
 	Node** children;
 	MinimaxAction action;
+
+	string path;
+	char label;
 };
 
 //*************************************************************************************************************
@@ -837,7 +854,9 @@ Node::Node() :
 	parent(NULL),
 	childrenCount(0),
 	children(NULL),
-	action()
+	action(),
+	path(),
+	label(PARENT_LABEL)
 {
 }
 
@@ -849,6 +868,8 @@ Node::~Node() {
 		delete state;
 		state = NULL;
 	}
+
+	path.clear();
 }
 
 //*************************************************************************************************************
@@ -872,6 +893,9 @@ Node* Node::createChild(
 	child->setNodeAction(action);
 
 	child->getState()->simulate(unitIdx, action);
+	char label = 'A' + actionIdx;
+	child->setLabel(label);
+	child->setTreePath();
 
 	return child;
 }
@@ -906,6 +930,24 @@ void Node::copyState(const State& state) {
 void Node::init(int gridSize) {
 	state = new State();
 	state->init(gridSize);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::setTreePath() {
+	Node* n = NULL;
+	Node* p = getParent();
+
+	path.push_back(label);
+
+	while (p) {
+		n = p;
+		path.push_back(n->label);
+		p = n->getParent();
+	}
+
+	reverse(path.begin(), path.end());
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -948,6 +990,8 @@ public:
 	void deleteTree(Node* node);
 	void clear();
 	void backtrack(Node* node);
+	void printTreeToFile();
+	void printChildren(Node* node, ofstream& file);
 
 	MinimaxResult maximize(Node* node, int unitIdx, int alpha, int beta);
 	MinimaxResult minimize(Node* node, int unitIdx, int alpha, int beta);
@@ -1009,6 +1053,8 @@ void Minimax::init(const State& state) {
 	tree->setNodeDepth(0);
 	tree->setNodeAction(MinimaxAction(MMAT_BUILD, Coords()));
 	tree->copyState(state);
+	tree->setLabel(PARENT_LABEL);
+	tree->setPath(PARENT_PATH);
 }
 
 //*************************************************************************************************************
@@ -1016,6 +1062,9 @@ void Minimax::init(const State& state) {
 
 void Minimax::run() {
 	MinimaxResult res = maximize(tree, UI_MY_UNIT, INT_MIN, INT_MAX);
+
+	printTreeToFile();
+
 	backtrack(res.bestLeaveNode);
 }
 
@@ -1062,6 +1111,32 @@ void Minimax::backtrack(Node* node) {
 	if (parent) {
 		backtrack(parent);
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Minimax::printChildren(Node* node, ofstream& file) {
+	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
+		Node* child = node->getChild(childIdx);
+		file << node->getPath() << "->" << child->getPath() << endl;
+
+		printChildren(child, file);
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Minimax::printTreeToFile() {
+	ofstream file;
+	file.open("minimaxTree.gv");
+	file << "digraph mytree{\n";
+
+	printChildren(tree, file);
+
+	file << "}";
+	file.close();
 }
 
 //*************************************************************************************************************
@@ -1129,7 +1204,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 			continue;
 		}
 
-		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth());
+		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth() + 1);
 		node->addChild(child);
 
 		MinimaxResult maxRes = maximize(child, UI_MY_UNIT, alpha, beta);

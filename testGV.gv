@@ -1,0 +1,4 @@
+digraph mytree{
+	root->left;
+	root->right;
+}
