@@ -155,6 +155,7 @@ public:
 	bool canBuildFromTo(Coords from, Coords to) const;
 	bool playableCell(Coords positon) const;
 	void copy(Grid* grid);
+	void build(Coords coords);
 
 private:
 	int gridSize;
@@ -261,6 +262,13 @@ void Grid::copy(Grid* grid) {
 			this->grid[rowIdx][colIdx] = grid->grid[rowIdx][colIdx];
 		}
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Grid::build(Coords coords) {
+	setCell(coords, getCell(coords) + 1);
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -414,6 +422,10 @@ public:
 		return minimaxActionsCount;
 	}
 
+	MinimaxAction getMinimaxAction(int actionIdx) const {
+		return minimaxActions[actionIdx];
+	}
+
 	void setPosition(Coords position) { this->position = position; }
 	void setPosetion(Posetion posetion) { this->posetion = posetion; }
 
@@ -423,6 +435,7 @@ public:
 	void init(int minimaxActionsCount);
 	void addMinimaxAction(MinimaxAction newAction);
 	void copy(Unit* unit);
+	void move(Coords coords);
 
 	void debug() const;
 
@@ -499,6 +512,13 @@ void Unit::copy(Unit* unit) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Unit::move(Coords coords) {
+	position = coords;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Unit::move(Direction direction) {
 	position.setXCoord(position.getXCoord() + DIR_X[direction]);
 	position.setYCoord(position.getYCoord() + DIR_Y[direction]);
@@ -537,7 +557,7 @@ public:
 		return units[unitIdx];
 	}
 
-	void simulate();
+	void simulate(int unitIdx, MinimaxAction action);
 	int evaluate() const;
 	void init(int gridSize);
 	void setMiniMaxUnitTurnActions();
@@ -582,7 +602,15 @@ State::~State() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void State::simulate() {
+void State::simulate(int unitIdx, MinimaxAction action) {
+	if (MMAT_MOVE == action.getType()) {
+		units[unitIdx]->move(action.getCoords());
+	}
+	else if (MMAT_BUILD == action.getType()) {
+		grid->build(action.getCoords());
+	}
+
+	// Update new actions for all units
 }
 
 //*************************************************************************************************************
@@ -728,9 +756,16 @@ Node::~Node() {
 //*************************************************************************************************************
 
 Node* Node::createChild(MaximizeMinimize mm, int unitIdx, int actionIdx) {
+	Node* child = new Node();
+	
+	child->copyState(*state);
 
+	Unit* unit = child->state->getUnit(unitIdx);
+	MinimaxAction action = unit->getMinimaxAction(actionIdx);
 
-	return nullptr;
+	child->getState()->simulate(unitIdx, action);
+
+	return child;
 }
 
 //*************************************************************************************************************
