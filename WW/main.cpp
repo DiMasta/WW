@@ -131,8 +131,18 @@ public:
 	Grid();
 	~Grid();
 
-	void setCell(int rowIdx, int colIdx, char c);
+	int getGridSize() const {
+		return gridSize;
+	}
+
+	char getCell(Coords psoiton) const;
+	void setCell(Coords position, char c);
 	void init(int gridSize);
+	bool validPosition(Coords position) const;
+	bool canMoveFromTo(Coords from, Coords to) const;
+	bool canBuildFromTo(Coords from, Coords to) const;
+	bool playableCell(Coords positon) const;
+
 private:
 	int gridSize;
 	char** grid;
@@ -161,8 +171,15 @@ Grid::~Grid() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Grid::setCell(int rowIdx, int colIdx, char c) {
-	grid[rowIdx][colIdx] = c;
+char Grid::getCell(Coords position) const {
+	return grid[position.getXCoord()][position.getYCoord()];
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Grid::setCell(Coords position, char c) {
+	grid[position.getXCoord()][position.getYCoord()] = c;
 }
 
 //*************************************************************************************************************
@@ -175,6 +192,51 @@ void Grid::init(int gridSize) {
 	for (int rowIdx = 0; rowIdx < gridSize; ++rowIdx) {
 		grid[rowIdx] = new char[gridSize];
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Grid::validPosition(Coords position) const {
+	bool valid = false;
+	bool validX = position.getXCoord() >= 0 && position.getXCoord() < gridSize;
+	bool validY = position.getYCoord() >= 0 && position.getYCoord() < gridSize;
+
+	if (validX && validY) {
+		valid = playableCell(position);
+	}
+
+	return valid;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Grid::canMoveFromTo(Coords from, Coords to) const {
+	bool canMove = false;
+	
+	char cellFromLevel = getCell(from);
+	char cellToLevel = getCell(to);
+
+	return cellFromLevel + 1 >= cellToLevel;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Grid::canBuildFromTo(Coords from, Coords to) const {
+	char cellToLevel = getCell(to);
+
+	return cellToLevel < LEVEL_3;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Grid::playableCell(Coords position) const {
+	char cellValue = getCell(position);
+
+	return cellValue >= LEVEL_0 && cellValue <= LEVEL_3;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -272,6 +334,8 @@ public:
 	void setType(MiniMaxActionType type) { this->type = type; }
 	void setCoords(Coords coords) { this->coords = coords; }
 
+	bool isValid() const;
+
 private:
 	MiniMaxActionType type;
 	Coords coords;
@@ -296,6 +360,13 @@ MiniMaxAction::MiniMaxAction(
 	type(type),
 	coords(coords)
 {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool MiniMaxAction::isValid() const {
+	return MMAT_INVALID != type;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -334,6 +405,7 @@ public:
 	Coords build(Direction direction);
 	void makeTurn();
 	void init();
+	void addMiniMaxAction(MiniMaxAction newAction);
 
 	void debug() const;
 
@@ -370,6 +442,23 @@ void Unit::makeTurn() {
 
 void Unit::init() {
 
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Unit::addMiniMaxAction(MiniMaxAction newAction) {
+	++minimaxActionsCount;
+	MiniMaxAction* temp = new MiniMaxAction[minimaxActionsCount];
+
+	for (int actionIdx = 0; actionIdx < minimaxActionsCount - 1; ++actionIdx) {
+		temp[actionIdx] = minimaxActions[actionIdx];
+	}
+
+	temp[minimaxActionsCount - 1] = newAction;
+	
+	delete[] minimaxActions;
+	minimaxActions = temp;
 }
 
 //*************************************************************************************************************
@@ -494,8 +583,31 @@ void State::init(int gridSize) {
 
 void State::setMiniMaxUnitTurnActions() {
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
-		for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
+		Coords unitPosition = units[unitIdx].getPosition();
+		char cell = grid->getCell(unitPosition);
 
+		for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
+			Coords newPosition;
+			newPosition.setXCoord(unitPosition.getXCoord() + DIR_X[dirIdx]);
+			newPosition.setYCoord(unitPosition.getYCoord() + DIR_Y[dirIdx]);
+
+			if (grid->validPosition(newPosition)) {
+				MiniMaxAction newAction;
+
+				if (grid->canMoveFromTo(unitPosition, newPosition)) {
+					newAction.setCoords(newPosition);
+					newAction.setType(MMAT_MOVE);
+				}
+
+				if (grid->canBuildFromTo(unitPosition, newPosition)) {
+					newAction.setCoords(newPosition);
+					newAction.setType(MMAT_BUILD);
+				}
+
+				if (newAction.isValid()) {
+					units[unitIdx].addMiniMaxAction(newAction);
+				}
+			}
 		}
 	}
 }
@@ -702,7 +814,7 @@ void Game::getTurnInput() {
 				cerr << c;
 			}
 
-			turnState.getGrid()->setCell(rowIdx, colIdx, c);
+			turnState.getGrid()->setCell(Coords(rowIdx, colIdx), c);
 		}
 		//cerr << endl;
 	}
@@ -748,6 +860,7 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
+	turnState.setMiniMaxUnitTurnActions();
 	minimax.init(turnState);
 }
 
