@@ -142,6 +142,7 @@ public:
 	bool canMoveFromTo(Coords from, Coords to) const;
 	bool canBuildFromTo(Coords from, Coords to) const;
 	bool playableCell(Coords positon) const;
+	void copy(Grid* grid);
 
 private:
 	int gridSize;
@@ -237,6 +238,17 @@ bool Grid::playableCell(Coords position) const {
 	char cellValue = getCell(position);
 
 	return cellValue >= LEVEL_0 && cellValue <= LEVEL_3;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Grid::copy(Grid* grid) {
+	for (int rowIdx = 0; rowIdx < gridSize; ++rowIdx) {
+		for (int colIdx = 0; colIdx < gridSize; ++colIdx) {
+			this->grid[rowIdx][colIdx] = grid->grid[rowIdx][colIdx];
+		}
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -376,17 +388,10 @@ bool MiniMaxAction::isValid() const {
 class Unit {
 public:
 	Unit();
+	~Unit();
 
 	Coords getPosition() const {
 		return position;
-	}
-
-	int getLegalActionsCount() const {
-		return legalActionsCount;
-	}
-
-	Action* getLegalActions() const {
-		return legalActions;
 	}
 
 	Posetion getPosetion() const {
@@ -394,25 +399,19 @@ public:
 	}
 
 	void setPosition(Coords position) { this->position = position; }
-	void setLegalactionsCount(int legalActionsCount) { this->legalActionsCount = legalActionsCount; }
-	void setLegalActions(Action* legalActions) { this->legalActions = legalActions; }
 	void setPosetion(Posetion posetion) { this->posetion = posetion; }
 
-	void initLegalactions(int legalActionsCount);
-	void fillActionData(int actionIdx, int unitIndex, string type, string moveDir, string buildDir);
-	void performAction(int actionIdx) const;
 	void move(Direction direction);
 	Coords build(Direction direction);
 	void makeTurn();
-	void init();
+	void init(int minimaxActionsCount);
 	void addMiniMaxAction(MiniMaxAction newAction);
+	void copy(Unit* unit);
 
 	void debug() const;
 
 private:
 	Coords position;
-	int legalActionsCount;
-	Action* legalActions;
 	Posetion posetion;
 	int minimaxActionsCount;
 	MiniMaxAction* minimaxActions;
@@ -423,12 +422,20 @@ private:
 
 Unit::Unit() :
 	position(),
-	legalActionsCount(0),
-	legalActions(NULL),
 	posetion(P_INAVALID_POSETION),
 	minimaxActionsCount(0),
 	minimaxActions(NULL)
 {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Unit::~Unit() {
+	if (minimaxActions) {
+		delete minimaxActions;
+		minimaxActions = NULL;
+	}
 }
 
 //*************************************************************************************************************
@@ -440,8 +447,9 @@ void Unit::makeTurn() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Unit::init() {
-
+void Unit::init(int minimaxActionsCount) {
+	this->minimaxActionsCount = minimaxActionsCount;
+	minimaxActions = new MiniMaxAction[minimaxActionsCount];
 }
 
 //*************************************************************************************************************
@@ -464,23 +472,12 @@ void Unit::addMiniMaxAction(MiniMaxAction newAction) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Unit::initLegalactions(int legalActionsCount) {
-	this->legalActionsCount = legalActionsCount;
-	legalActions = new Action[legalActionsCount];
-}
+void Unit::copy(Unit* unit) {
+	init(unit->minimaxActionsCount);
 
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Unit::fillActionData(int actionIdx, int unitIndex, string type, string moveDir, string buildDir) {
-	legalActions[actionIdx].filldata(type, unitIndex, moveDir, buildDir);
-}
-
-//*************************************************************************************************************
-//*************************************************************************************************************
-
-void Unit::performAction(int actionIdx) const {
-	legalActions[actionIdx].perform();
+	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
+		minimaxActions[actionIdx] = unit->minimaxActions[actionIdx];
+	}
 }
 
 //*************************************************************************************************************
@@ -505,10 +502,6 @@ Coords Unit::build(Direction direction) {
 //*************************************************************************************************************
 
 void Unit::debug() const {
-	position.debug();
-	for (int actionIdx = 0; actionIdx < legalActionsCount; ++actionIdx) {
-		legalActions[actionIdx].debug();
-	}
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -524,16 +517,24 @@ public:
 		return grid;
 	}
 
+	Unit* getUnit(int unitIdx) const {
+		return units[unitIdx];
+	}
+
 	void simulate();
 	int evaluate() const;
 	void init(int gridSize);
 	void setMiniMaxUnitTurnActions();
-	Unit& getUnit(int unitIdx) { return units[unitIdx]; }
+	
+	void copy(const State& state);
+	void setUnitPosition(int unitIdx, Coords position);
+	void setUnitPosetion(int unitIdx, Posetion posetion);
 
 	void debug() const;
+
 private:
 	Grid* grid;
-	Unit units[GAME_UNITS_COUNT];
+	Unit* units[GAME_UNITS_COUNT];
 };
 
 //*************************************************************************************************************
@@ -542,9 +543,6 @@ private:
 State::State() :
 	grid()
 {
-	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
-		units[unitIdx].init();
-	}
 }
 
 //*************************************************************************************************************
@@ -554,6 +552,13 @@ State::~State() {
 	if (grid) {
 		delete grid;
 		grid = NULL;
+	}
+
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		if (units[unitIdx]) {
+			delete units[unitIdx];
+			units[unitIdx] = NULL;
+		}
 	}
 }
 
@@ -576,6 +581,10 @@ int State::evaluate() const {
 void State::init(int gridSize) {
 	grid = new Grid();
 	grid->init(gridSize);
+
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		units[unitIdx] = new Unit();
+	}
 }
 
 //*************************************************************************************************************
@@ -583,7 +592,7 @@ void State::init(int gridSize) {
 
 void State::setMiniMaxUnitTurnActions() {
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
-		Coords unitPosition = units[unitIdx].getPosition();
+		Coords unitPosition = units[unitIdx]->getPosition();
 		char cell = grid->getCell(unitPosition);
 
 		for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
@@ -597,19 +606,43 @@ void State::setMiniMaxUnitTurnActions() {
 				if (grid->canMoveFromTo(unitPosition, newPosition)) {
 					newAction.setCoords(newPosition);
 					newAction.setType(MMAT_MOVE);
+					units[unitIdx]->addMiniMaxAction(newAction);
 				}
 
 				if (grid->canBuildFromTo(unitPosition, newPosition)) {
 					newAction.setCoords(newPosition);
 					newAction.setType(MMAT_BUILD);
-				}
-
-				if (newAction.isValid()) {
-					units[unitIdx].addMiniMaxAction(newAction);
+					units[unitIdx]->addMiniMaxAction(newAction);
 				}
 			}
 		}
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::copy(const State& state) {
+	init(state.grid->getGridSize());
+	grid->copy(state.getGrid());
+
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		units[unitIdx]->copy(state.getUnit(unitIdx));
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::setUnitPosition(int unitIdx, Coords position) {
+	units[unitIdx]->setPosition(position);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::setUnitPosetion(int unitIdx, Posetion posetion) {
+	units[unitIdx]->setPosetion(posetion);
 }
 
 //*************************************************************************************************************
@@ -625,6 +658,7 @@ void State::debug() const {
 class Node {
 public:
 	Node();
+	~Node();
 
 	void setState(const State& state) { this->state = state; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
@@ -632,6 +666,7 @@ public:
 	Node* createChild();
 	void addChild(Node* child);
 	void deleteTree();
+	void copyState(const State& state);
 
 private:
 	int nodeDepth;
@@ -654,6 +689,12 @@ Node::Node() :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+Node::~Node() {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 Node* Node::createChild() {
 	return nullptr;
 }
@@ -668,6 +709,13 @@ void Node::addChild(Node* child) {
 //*************************************************************************************************************
 
 void Node::deleteTree() {
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Node::copyState(const State& state) {
+	this->state.copy(state);
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -705,7 +753,7 @@ MiniMax::~MiniMax() {
 
 void MiniMax::init(const State& state) {
 	tree.setNodeDepth(0);
-	tree.setState(state);
+	tree.copyState(state);
 }
 
 //*************************************************************************************************************
@@ -776,6 +824,10 @@ void Game::gameLoop() {
 		turnBegin();
 		makeTurn();
 		turnEnd();
+
+		if (1 == turnsCount) {
+			break;
+		}
 	}
 }
 
@@ -836,8 +888,8 @@ void Game::getTurnInput() {
 			posetion = P_ENEMY;
 		}
 
-		turnState.getUnit(unitIdx).setPosition(Coords(unitX, unitY));
-		turnState.getUnit(unitIdx).setPosetion(posetion);
+		turnState.setUnitPosition(unitIdx, Coords(unitX, unitY));
+		turnState.setUnitPosetion(unitIdx, posetion);
 	}
 
 	if (!USE_HARDCODED_INPUT) {
