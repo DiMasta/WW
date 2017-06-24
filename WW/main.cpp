@@ -12,6 +12,7 @@
 using namespace std;
 
 const int USE_HARDCODED_INPUT = 1;
+const int MINIMAX_DEPTH = 6;
 
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
@@ -41,7 +42,18 @@ const char LEVEL_1 = '1';
 const char LEVEL_2 = '2';
 const char LEVEL_3 = '3';
 
-enum MiniMaxActionType {
+enum UnitIds {
+	UI_INVALID = -1,
+	UI_MY_UNIT = 0,
+	UI_ENEMY_UNIT = 1,
+};
+
+enum MaximizeMinimize {
+	MM_MAXIMIZE = 0,
+	MM_MINIMIZE
+};
+
+enum MinimaxActionType {
 	MMAT_INVALID = -1,
 	MMAT_MOVE,
 	MMAT_BUILD,
@@ -330,12 +342,12 @@ void Action::debug() const {
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
-class MiniMaxAction {
+class MinimaxAction {
 public:
-	MiniMaxAction();
-	MiniMaxAction(MiniMaxActionType type, Coords coords);
+	MinimaxAction();
+	MinimaxAction(MinimaxActionType type, Coords coords);
 
-	MiniMaxActionType getType() const {
+	MinimaxActionType getType() const {
 		return type;
 	}
 
@@ -343,20 +355,20 @@ public:
 		return coords;
 	}
 
-	void setType(MiniMaxActionType type) { this->type = type; }
+	void setType(MinimaxActionType type) { this->type = type; }
 	void setCoords(Coords coords) { this->coords = coords; }
 
 	bool isValid() const;
 
 private:
-	MiniMaxActionType type;
+	MinimaxActionType type;
 	Coords coords;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MiniMaxAction::MiniMaxAction() :
+MinimaxAction::MinimaxAction() :
 	type(MMAT_INVALID),
 	coords()
 {
@@ -365,8 +377,8 @@ MiniMaxAction::MiniMaxAction() :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MiniMaxAction::MiniMaxAction(
-	MiniMaxActionType type,
+MinimaxAction::MinimaxAction(
+	MinimaxActionType type,
 	Coords coords
 ) :
 	type(type),
@@ -377,7 +389,7 @@ MiniMaxAction::MiniMaxAction(
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool MiniMaxAction::isValid() const {
+bool MinimaxAction::isValid() const {
 	return MMAT_INVALID != type;
 }
 
@@ -398,6 +410,10 @@ public:
 		return posetion;
 	}
 
+	int getMinimaxActionsCout() const {
+		return minimaxActionsCount;
+	}
+
 	void setPosition(Coords position) { this->position = position; }
 	void setPosetion(Posetion posetion) { this->posetion = posetion; }
 
@@ -405,7 +421,7 @@ public:
 	Coords build(Direction direction);
 	void makeTurn();
 	void init(int minimaxActionsCount);
-	void addMiniMaxAction(MiniMaxAction newAction);
+	void addMinimaxAction(MinimaxAction newAction);
 	void copy(Unit* unit);
 
 	void debug() const;
@@ -414,7 +430,7 @@ private:
 	Coords position;
 	Posetion posetion;
 	int minimaxActionsCount;
-	MiniMaxAction* minimaxActions;
+	MinimaxAction* minimaxActions;
 };
 
 //*************************************************************************************************************
@@ -449,15 +465,15 @@ void Unit::makeTurn() {
 
 void Unit::init(int minimaxActionsCount) {
 	this->minimaxActionsCount = minimaxActionsCount;
-	minimaxActions = new MiniMaxAction[minimaxActionsCount];
+	minimaxActions = new MinimaxAction[minimaxActionsCount];
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void Unit::addMiniMaxAction(MiniMaxAction newAction) {
+void Unit::addMinimaxAction(MinimaxAction newAction) {
 	++minimaxActionsCount;
-	MiniMaxAction* temp = new MiniMaxAction[minimaxActionsCount];
+	MinimaxAction* temp = new MinimaxAction[minimaxActionsCount];
 
 	for (int actionIdx = 0; actionIdx < minimaxActionsCount - 1; ++actionIdx) {
 		temp[actionIdx] = minimaxActions[actionIdx];
@@ -529,6 +545,7 @@ public:
 	void copy(const State& state);
 	void setUnitPosition(int unitIdx, Coords position);
 	void setUnitPosetion(int unitIdx, Posetion posetion);
+	bool isTerminal() const;
 
 	void debug() const;
 
@@ -601,18 +618,18 @@ void State::setMiniMaxUnitTurnActions() {
 			newPosition.setYCoord(unitPosition.getYCoord() + DIR_Y[dirIdx]);
 
 			if (grid->validPosition(newPosition)) {
-				MiniMaxAction newAction;
+				MinimaxAction newAction;
 
 				if (grid->canMoveFromTo(unitPosition, newPosition)) {
 					newAction.setCoords(newPosition);
 					newAction.setType(MMAT_MOVE);
-					units[unitIdx]->addMiniMaxAction(newAction);
+					units[unitIdx]->addMinimaxAction(newAction);
 				}
 
 				if (grid->canBuildFromTo(unitPosition, newPosition)) {
 					newAction.setCoords(newPosition);
 					newAction.setType(MMAT_BUILD);
-					units[unitIdx]->addMiniMaxAction(newAction);
+					units[unitIdx]->addMinimaxAction(newAction);
 				}
 			}
 		}
@@ -648,6 +665,13 @@ void State::setUnitPosetion(int unitIdx, Posetion posetion) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+bool State::isTerminal() const {
+	return false;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void State::debug() const {
 }
 
@@ -660,17 +684,25 @@ public:
 	Node();
 	~Node();
 
-	void setState(const State& state) { this->state = state; }
+	int getNodeDepth() const {
+		return nodeDepth;
+	}
+
+	State* getState() const {
+		return state;
+	}
+
+	void setState(State* state) { this->state = state; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
 
-	Node* createChild();
+	Node* createChild(MaximizeMinimize mm, int unitIdx, int actionIdx);
 	void addChild(Node* child);
 	void deleteTree();
 	void copyState(const State& state);
 
 private:
 	int nodeDepth;
-	State state;
+	State* state;
 	Node* parent;
 	Node* children;
 };
@@ -695,7 +727,9 @@ Node::~Node() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node* Node::createChild() {
+Node* Node::createChild(MaximizeMinimize mm, int unitIdx, int actionIdx) {
+
+
 	return nullptr;
 }
 
@@ -715,20 +749,41 @@ void Node::deleteTree() {
 //*************************************************************************************************************
 
 void Node::copyState(const State& state) {
-	this->state.copy(state);
+	this->state->copy(state);
 }
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
 
-class MiniMax {
+struct MinimaxResult {
+	MinimaxResult(
+		Node* bestLeaveNode,
+		int evaluationValue
+	) :
+		bestLeaveNode(bestLeaveNode),
+		evaluationValue(evaluationValue)
+	{}
+
+	Node* bestLeaveNode;
+	int evaluationValue;
+};
+
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------
+
+class Minimax {
 public:
-	MiniMax();
-	~MiniMax();
+	Minimax();
+	~Minimax();
 
 	void init(const State& state);
 	void run();
+
+	MinimaxResult maximize(Node* node, int unitIdx, int alpha, int beta);
+	MinimaxResult minimize(Node* node, int unitIdx, int alpha, int beta);
+
 private:
 	Node tree;
 };
@@ -736,7 +791,7 @@ private:
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MiniMax::MiniMax() :
+Minimax::Minimax() :
 	tree()
 {
 }
@@ -744,14 +799,14 @@ MiniMax::MiniMax() :
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-MiniMax::~MiniMax() {
+Minimax::~Minimax() {
 	tree.deleteTree();
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void MiniMax::init(const State& state) {
+void Minimax::init(const State& state) {
 	tree.setNodeDepth(0);
 	tree.copyState(state);
 }
@@ -759,7 +814,80 @@ void MiniMax::init(const State& state) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-void MiniMax::run() {
+void Minimax::run() {
+	MinimaxResult res = maximize(&tree, UI_MY_UNIT, INT_MIN, INT_MAX);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
+	State* state = node->getState();
+
+	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
+		int eval = state->evaluate();
+		return MinimaxResult(node, eval);
+	}
+
+	MinimaxResult res = MinimaxResult(NULL, INT_MIN);
+
+	int minimaxActionsCount = state->getUnit(unitIdx)->getMinimaxActionsCout();
+	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
+		Node* child = node->createChild(MM_MAXIMIZE, unitIdx, actionIdx);
+		node->addChild(child);
+
+		MinimaxResult minRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
+
+		if (minRes.evaluationValue > res.evaluationValue) {
+			res = minRes;
+		}
+
+		if (res.evaluationValue >= beta) {
+			break;
+		}
+
+		if (res.evaluationValue > alpha) {
+			alpha = res.evaluationValue;
+		}
+	}
+
+	return res;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+MinimaxResult Minimax::minimize(Node * node, int unitIdx, int alpha, int beta) {
+	State* state = node->getState();
+
+	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
+		int eval = state->evaluate();
+		return MinimaxResult(node, eval);
+	}
+
+	MinimaxResult res = MinimaxResult(NULL, INT_MAX);
+
+	int minimaxActionsCount = state->getUnit(unitIdx)->getMinimaxActionsCout();
+	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
+		Node* child = node->createChild(MM_MINIMIZE, unitIdx, actionIdx);
+		node->addChild(child);
+
+		MinimaxResult maxRes = maximize(child, UI_MY_UNIT, alpha, beta);
+
+		if (maxRes.evaluationValue < res.evaluationValue) {
+			res = maxRes;
+		}
+
+		if (res.evaluationValue <= alpha) {
+			break;
+		}
+
+		if (res.evaluationValue < beta) {
+			beta = res.evaluationValue;
+		}
+	}
+
+	return res;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -788,7 +916,7 @@ private:
 	int unitsPerPlayer;
 
 	State turnState;
-	MiniMax minimax;
+	Minimax minimax;
 };
 
 //*************************************************************************************************************
