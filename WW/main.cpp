@@ -720,10 +720,15 @@ public:
 		return state;
 	}
 
+	MinimaxActionType getNodeAction() const {
+		return nodeAction;
+	}
+
 	void setState(State* state) { this->state = state; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
+	void setNodeAction(MinimaxActionType nodeAction) { this->nodeAction = nodeAction; }
 
-	Node* createChild(MaximizeMinimize mm, int unitIdx, int actionIdx);
+	Node* createChild(int unitIdx, int actionIdx);
 	void addChild(Node* child);
 	void deleteTree();
 	void copyState(const State& state);
@@ -733,6 +738,7 @@ private:
 	State* state;
 	Node* parent;
 	Node* children;
+	MinimaxActionType nodeAction;
 };
 
 //*************************************************************************************************************
@@ -742,7 +748,8 @@ Node::Node() :
 	nodeDepth(INVALID_NODE_DEPTH),
 	state(),
 	parent(NULL),
-	children(NULL)
+	children(NULL),
+	nodeAction(MMAT_INVALID)
 {
 }
 
@@ -755,7 +762,7 @@ Node::~Node() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-Node* Node::createChild(MaximizeMinimize mm, int unitIdx, int actionIdx) {
+Node* Node::createChild(int unitIdx, int actionIdx) {
 	Node* child = new Node();
 	
 	child->copyState(*state);
@@ -813,6 +820,7 @@ public:
 	Minimax();
 	~Minimax();
 
+	MinimaxActionType currentActionType(MinimaxActionType parentAction, MaximizeMinimize mm) const;
 	void init(const State& state);
 	void run();
 
@@ -841,8 +849,34 @@ Minimax::~Minimax() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+MinimaxActionType Minimax::currentActionType(MinimaxActionType parentAction, MaximizeMinimize mm) const {
+	MinimaxActionType action = MMAT_INVALID;
+
+	if (MMAT_BUILD == parentAction && MM_MAXIMIZE == mm) {
+		action = MMAT_MOVE;
+	}
+
+	if (MMAT_MOVE == parentAction && MM_MINIMIZE == mm) {
+		action = MMAT_MOVE;
+	}
+
+	if (MMAT_MOVE == parentAction && MM_MAXIMIZE == mm) {
+		action = MMAT_BUILD;
+	}
+
+	if (MMAT_BUILD == parentAction && MM_MINIMIZE == mm) {
+		action = MMAT_BUILD;
+	}
+
+	return action;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Minimax::init(const State& state) {
 	tree.setNodeDepth(0);
+	tree.setNodeAction(MMAT_BUILD);
 	tree.copyState(state);
 }
 
@@ -858,6 +892,7 @@ void Minimax::run() {
 
 MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 	State* state = node->getState();
+	Unit* unit = state->getUnit(unitIdx);
 
 	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
 		int eval = state->evaluate();
@@ -866,9 +901,15 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 
 	MinimaxResult res = MinimaxResult(NULL, INT_MIN);
 
-	int minimaxActionsCount = state->getUnit(unitIdx)->getMinimaxActionsCout();
+	const MinimaxActionType typeForChildren = currentActionType(node->getNodeAction(), MM_MAXIMIZE);
+	int minimaxActionsCount = unit->getMinimaxActionsCout();
+
 	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
-		Node* child = node->createChild(MM_MAXIMIZE, unitIdx, actionIdx);
+		if (typeForChildren != unit->getMinimaxAction(actionIdx).getType()) {
+			continue;
+		}
+
+		Node* child = node->createChild(unitIdx, actionIdx);
 		node->addChild(child);
 
 		MinimaxResult minRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
@@ -904,7 +945,7 @@ MinimaxResult Minimax::minimize(Node * node, int unitIdx, int alpha, int beta) {
 
 	int minimaxActionsCount = state->getUnit(unitIdx)->getMinimaxActionsCout();
 	for (int actionIdx = 0; actionIdx < minimaxActionsCount; ++actionIdx) {
-		Node* child = node->createChild(MM_MINIMIZE, unitIdx, actionIdx);
+		Node* child = node->createChild(unitIdx, actionIdx);
 		node->addChild(child);
 
 		MinimaxResult maxRes = maximize(child, UI_MY_UNIT, alpha, beta);
