@@ -605,6 +605,7 @@ public:
 	void setUnitPosition(int unitIdx, Coords position);
 	void setUnitPosetion(int unitIdx, Posetion posetion);
 	bool isTerminal() const;
+	void updateScore();
 
 	void debug() const;
 
@@ -760,6 +761,21 @@ void State::setUnitPosetion(int unitIdx, Posetion posetion) {
 
 bool State::isTerminal() const {
 	return false;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::updateScore() {
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		Unit* unit = units[unitIdx];
+		Coords unitPosition = unit->getPosition();
+		char cell = grid->getCell(unitPosition);
+		
+		if (LEVEL_3 == cell) {
+			unit->incrementScore();
+		}
+	}
 }
 
 //*************************************************************************************************************
@@ -1242,6 +1258,7 @@ void Game::getTurnInput() {
 
 		turnState.setUnitPosition(unitIdx, Coords(unitX, unitY));
 		turnState.setUnitPosetion(unitIdx, posetion);
+		turnState.updateScore();
 	}
 
 	if (!USE_HARDCODED_INPUT) {
