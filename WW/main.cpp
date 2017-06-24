@@ -20,15 +20,6 @@ const int LEVELS_WEIGHT = 200;
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
 
-const string N = "N";
-const string NE = "NE";
-const string E = "E";
-const string SE = "SE";
-const string S = "S";
-const string SW = "SW";
-const string W = "W";
-const string NW = "NW";
-
 const int DIRECTION_COUNT = 8;
 const int INVALID_COORD = -1;
 const int INVALID_INDEX = -1;
@@ -82,6 +73,7 @@ enum Direction {
 	D_NW,
 };
 
+string DIR_STRS[DIRECTION_COUNT] = { "N", "NE", "E", "SE", "S", "SW", "W" "NW" };
 int DIR_X[DIRECTION_COUNT] = { 0,  1, 1, 1, 0, -1, -1, -1};
 int DIR_Y[DIRECTION_COUNT] = {-1, -1, 0, 1, 1,  1,  0, -1};
 
@@ -1175,6 +1167,9 @@ public:
 	void turnEnd();
 	void play();
 
+	string coordsToDirection(Coords from, Coords to) const;
+	void outPutMinimaxRes() const;
+
 	void debug() const;
 
 private:
@@ -1318,6 +1313,7 @@ void Game::turnBegin() {
 
 void Game::makeTurn() {
 	minimax.run();
+	outPutMinimaxRes();
 }
 
 //*************************************************************************************************************
@@ -1335,6 +1331,35 @@ void Game::play() {
 	initGame();
 	getGameInput();
 	gameLoop();
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+string Game::coordsToDirection(Coords from, Coords to) const {
+	const int xDiff = from.getXCoord() - to.getXCoord();
+	const int yDiff = from.getYCoord() - to.getYCoord();
+
+	int dirIdx = 0;
+	for (; dirIdx < DIRECTION_COUNT; ++dirIdx) {
+		if (xDiff == DIR_X[dirIdx] && yDiff == DIR_Y[dirIdx]) {
+			break;
+		}
+	}
+
+	return DIR_STRS[dirIdx];
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Game::outPutMinimaxRes() const {
+	const Coords myUnitPosition = turnState.getUnit(UI_MY_UNIT)->getPosition();
+
+	const string moveDirection = coordsToDirection(myUnitPosition, minimax.getMoveCoords());
+	const string buildDirection = coordsToDirection(myUnitPosition, minimax.getBuildCoords());
+
+	cout << MOVE_BUILD_ACTION << ' ' << UI_MY_UNIT << ' ' << moveDirection << ' ' << buildDirection << endl;
 }
 
 //*************************************************************************************************************
