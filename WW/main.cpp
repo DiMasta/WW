@@ -76,9 +76,7 @@ enum Direction {
 	D_NW,
 };
 
-string DIR_STRS[DIRECTION_COUNT] = { "N", "NE", "E", "SE", "S", "SW", "W" "NW" };
-int DIR_X[DIRECTION_COUNT] = { 0,  1, 1, 1, 0, -1, -1, -1};
-int DIR_Y[DIRECTION_COUNT] = {-1, -1, 0, 1, 1,  1,  0, -1};
+string DIR_STRS[DIRECTION_COUNT] = { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -99,6 +97,11 @@ public:
 
 	void setXCoord(int xCoord) { this->xCoord = xCoord; }
 	void setYCoord(int yCoord) { this->yCoord = yCoord; }
+
+	Coords& operator=(const Coords& other);
+	bool operator==(const Coords& other);
+	Coords operator+(const Coords& other);
+	Coords& operator+=(const Coords& other);
 
 	void debug() const;
 private:
@@ -130,9 +133,59 @@ Coords::Coords(
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+Coords& Coords::operator=(const Coords& other) {
+	if (this != &other) {
+		xCoord = other.xCoord;
+		yCoord = other.yCoord;
+	}
+
+	return *this;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Coords::operator==(const Coords& other) {
+	return (xCoord == other.xCoord) && (yCoord == other.yCoord);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords Coords::operator+(const Coords& other) {
+	return Coords(xCoord + other.xCoord, yCoord + other.yCoord);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords& Coords::operator+=(const Coords& other) {
+	xCoord += other.xCoord;
+	yCoord += other.yCoord;
+
+	return *this;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Coords::debug() const {
 	cerr << "Position: X=" << xCoord << ", Y=" << yCoord << endl;
 }
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+Coords DIRECTIONS[DIRECTION_COUNT] = {
+	Coords( 0, -1), // N
+	Coords( 1, -1), // NE
+	Coords( 1,  0), // E
+	Coords( 1,  1), // SE
+	Coords( 0,  1), // S
+	Coords(-1,  1), // SW
+	Coords(-1,  0), // W
+	Coords(-1, -1)  // NW
+};
 
 //-------------------------------------------------------------------------------------------------------------
 //-------------------------------------------------------------------------------------------------------------
@@ -279,9 +332,7 @@ int Grid::getSurroundingLevels(Coords coords) const {
 	int surroudingLevels = 0;
 
 	for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
-		Coords newPosition;
-		newPosition.setXCoord(coords.getXCoord() + DIR_X[dirIdx]);
-		newPosition.setYCoord(coords.getYCoord() + DIR_Y[dirIdx]);
+		Coords newPosition = coords + DIRECTIONS[dirIdx];
 
 		if (validPosition(newPosition)) {
 			surroudingLevels += getCell(newPosition) - LEVEL_0;
@@ -549,18 +600,15 @@ void Unit::incrementScore() {
 //*************************************************************************************************************
 
 void Unit::move(Direction direction) {
-	position.setXCoord(position.getXCoord() + DIR_X[direction]);
-	position.setYCoord(position.getYCoord() + DIR_Y[direction]);
+	position += DIRECTIONS[direction];
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 Coords Unit::build(Direction direction) {
-	int xBuildCoord = position.getXCoord() + DIR_X[direction];
-	int yBuildCoord = position.getYCoord() + DIR_Y[direction];
-
-	return Coords(xBuildCoord, yBuildCoord);
+	Coords buildCoords = position + DIRECTIONS[direction];
+	return buildCoords;
 }
 
 //*************************************************************************************************************
@@ -698,9 +746,7 @@ void State::setMiniMaxUnitTurnActions() {
 		char cell = grid->getCell(unitPosition);
 
 		for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
-			Coords newPosition;
-			newPosition.setXCoord(unitPosition.getXCoord() + DIR_X[dirIdx]);
-			newPosition.setYCoord(unitPosition.getYCoord() + DIR_Y[dirIdx]);
+			Coords newPosition = unitPosition + DIRECTIONS[dirIdx];
 
 			if (grid->validPosition(newPosition)) {
 				MinimaxAction newAction;
@@ -883,8 +929,7 @@ Node* Node::createChild(
 ) {
 	Node* child = new Node();
 	child->init(state->getGrid()->getGridSize());
-	
-	//child->copyState(*state);
+
 	child->getState()->getGrid()->copy(state->getGrid());
 
 	for (int i = 0; i < GAME_UNITS_COUNT; ++i) {
@@ -1300,7 +1345,7 @@ void Game::gameLoop() {
 		makeTurn();
 		turnEnd();
 
-		if (1 == turnsCount) {
+		if (USE_HARDCODED_INPUT && 2 == turnsCount) {
 			break;
 		}
 	}
@@ -1335,6 +1380,9 @@ void Game::getTurnInput() {
 
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
+
+				if (1 == turnsCount && 0 == rowIdx && 2 == colIdx) { c = '1'; };
+				if (1 == turnsCount && 0 == rowIdx && 4 == colIdx) { c = '1'; };
 			}
 			else {
 				cin >> c;
@@ -1352,6 +1400,11 @@ void Game::getTurnInput() {
 		if (USE_HARDCODED_INPUT) {
 			if (0 == unitIdx) { unitX = 3; unitY = 0; }
 			if (1 == unitIdx) { unitX = 0; unitY = 0; }
+
+			if (1 == turnsCount) {
+				if (0 == unitIdx) { unitX = 4; unitY = 0; }
+				if (1 == unitIdx) { unitX = 1; unitY = 0; }
+			}
 		}
 		else {
 			cin >> unitX >> unitY;
@@ -1372,15 +1425,12 @@ void Game::getTurnInput() {
 	if (!USE_HARDCODED_INPUT) {
 		int legalActions;
 		cin >> legalActions;
-		//me->getUnit(0)->initLegalactions(legalActions);
 
 		for (int i = 0; i < legalActions; i++) {
 			string type, dir1, dir2;
 			int index;
 			cin >> type >> index >> dir1 >> dir2;
 			//cerr << "Legal action: " << " Type:" << type << " Idx:" << index << " Dir1:" << dir1 << " Dir2:" << dir2 << endl;
-
-			//me->getUnit(index)->fillActionData(i, index, type.c_str(), dir1.c_str(), dir2.c_str());
 		}
 	}
 }
@@ -1422,12 +1472,11 @@ void Game::play() {
 //*************************************************************************************************************
 
 string Game::coordsToDirection(Coords from, Coords to) const {
-	const int xDiff = from.getXCoord() - to.getXCoord();
-	const int yDiff = from.getYCoord() - to.getYCoord();
-
 	int dirIdx = 0;
 	for (; dirIdx < DIRECTION_COUNT; ++dirIdx) {
-		if (xDiff == DIR_X[dirIdx] && yDiff == DIR_Y[dirIdx]) {
+		Coords newCoords = from + DIRECTIONS[dirIdx];
+
+		if (newCoords == to) {
 			break;
 		}
 	}
@@ -1442,7 +1491,7 @@ void Game::outPutMinimaxRes() const {
 	const Coords myUnitPosition = turnState.getUnit(UI_MY_UNIT)->getPosition();
 
 	const string moveDirection = coordsToDirection(myUnitPosition, minimax.getMoveCoords());
-	const string buildDirection = coordsToDirection(myUnitPosition, minimax.getBuildCoords());
+	const string buildDirection = coordsToDirection(minimax.getMoveCoords(), minimax.getBuildCoords());
 
 	cout << MOVE_BUILD_ACTION << ' ' << UI_MY_UNIT << ' ' << moveDirection << ' ' << buildDirection << endl;
 }
