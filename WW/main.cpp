@@ -12,7 +12,7 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 1;
+const int USE_HARDCODED_INPUT = 0;
 const int MINIMAX_DEPTH = 4;
 
 const int SCORE_WEIGHT = 800;
@@ -510,6 +510,7 @@ public:
 	void copy(Unit* unit);
 	void move(Coords coords);
 	void incrementScore();
+	void clearActions();
 
 	void debug() const;
 
@@ -537,10 +538,7 @@ Unit::Unit() :
 //*************************************************************************************************************
 
 Unit::~Unit() {
-	if (minimaxActions) {
-		delete[] minimaxActions;
-		minimaxActions = NULL;
-	}
+	clearActions();
 }
 
 //*************************************************************************************************************
@@ -599,6 +597,18 @@ void Unit::incrementScore() {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
+void Unit::clearActions() {
+	minimaxActionsCount = 0;
+
+	if (minimaxActions) {
+		delete[] minimaxActions;
+		minimaxActions = NULL;
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
 void Unit::move(Direction direction) {
 	position += DIRECTIONS[direction];
 }
@@ -644,6 +654,7 @@ public:
 	void setUnitPosetion(int unitIdx, Posetion posetion);
 	bool isTerminal() const;
 	void updateScore();
+	void clearUnitsActions();
 
 	void debug() const;
 
@@ -811,6 +822,16 @@ void State::updateScore() {
 		if (LEVEL_3 == cell) {
 			unit->incrementScore();
 		}
+	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::clearUnitsActions() {
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		Unit* unit = units[unitIdx];
+		unit->clearActions();
 	}
 }
 
@@ -1456,6 +1477,7 @@ void Game::makeTurn() {
 
 void Game::turnEnd() {
 	++turnsCount;
+	turnState.clearUnitsActions();
 	minimax.clear();
 }
 
