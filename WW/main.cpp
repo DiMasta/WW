@@ -883,11 +883,20 @@ Node* Node::createChild(
 ) {
 	Node* child = new Node();
 	child->init(state->getGrid()->getGridSize());
-	child->copyState(*state);
+	
+	//child->copyState(*state);
+	child->getState()->getGrid()->copy(state->getGrid());
+
+	for (int i = 0; i < GAME_UNITS_COUNT; ++i) {
+		child->getState()->getUnit(i)->setPosition(state->getUnit(i)->getPosition());
+		child->getState()->getUnit(i)->setPosetion(state->getUnit(i)->getPosetion());
+	}
+
+
 	child->setNodeDepth(nodeDepth);
 	child->setParent(parent);
 
-	Unit* unit = child->state->getUnit(unitIdx);
+	Unit* unit = parent->state->getUnit(unitIdx);
 	MinimaxAction action = unit->getMinimaxAction(actionIdx);
 
 	child->setNodeAction(action);
