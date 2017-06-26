@@ -12,8 +12,9 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 0;
+const int USE_HARDCODED_INPUT = 1;
 const int MINIMAX_DEPTH = 4;
+const int BREAK_TURN = 1;
 
 const int SCORE_WEIGHT = 800;
 const int LEVELS_WEIGHT = 200;
@@ -102,12 +103,18 @@ public:
 	bool operator==(const Coords& other);
 	Coords operator+(const Coords& other);
 	Coords& operator+=(const Coords& other);
+	friend ostream& operator<<(ostream& os, const Coords& c);
 
 	void debug() const;
 private:
 	int xCoord;
 	int yCoord;
 };
+
+ostream& operator<<(ostream& os, const Coords& c) {
+	os << "(" << c.xCoord << ", " << c.yCoord << ")";
+	return os;
+}
 
 //*************************************************************************************************************
 //*************************************************************************************************************
@@ -210,6 +217,7 @@ public:
 	void copy(Grid* grid);
 	void build(Coords coords);
 	int getSurroundingLevels(Coords coords) const;
+	void debugPrint(ofstream& file) const;
 
 private:
 	int gridSize;
@@ -338,7 +346,19 @@ int Grid::getSurroundingLevels(Coords coords) const {
 			surroudingLevels += getCell(newPosition) - LEVEL_0;
 		}
 	}
-	return 0;
+	return surroudingLevels;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void Grid::debugPrint(ofstream& file) const {
+	for (int rowIdx = 0; rowIdx < gridSize; ++rowIdx) {
+		for (int colIdx = 0; colIdx < gridSize; ++colIdx) {
+			file << grid[rowIdx][colIdx];
+		}
+		file << "\\n";
+	}
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -437,6 +457,7 @@ public:
 	void setCoords(Coords coords) { this->coords = coords; }
 
 	bool isValid() const;
+	void debugPrint(ofstream& file) const;
 
 private:
 	MinimaxActionType type;
@@ -469,6 +490,20 @@ MinimaxAction::MinimaxAction(
 
 bool MinimaxAction::isValid() const {
 	return MMAT_INVALID != type;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void MinimaxAction::debugPrint(ofstream& file) const {
+	if (MMAT_MOVE == type) {
+		file << "MOVE: ";
+	}
+	else {
+		file << "BUILD: ";
+	}
+
+	file << coords;
 }
 
 //-------------------------------------------------------------------------------------------------------------
@@ -1192,9 +1227,27 @@ void Minimax::backtrack(Node* node) {
 //*************************************************************************************************************
 
 void Minimax::printChildren(Node* node, ofstream& file) {
+	string nodePath = node->getPath();
+
+	if (0 == node->getChildrenCount()) {
+		file << nodePath << " [label=\"";
+		node->getState()->getGrid()->debugPrint(file);
+		file << nodePath << "\\n" << node->getState()->evaluate() << "\"]\n";
+	}
+
 	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
 		Node* child = node->getChild(childIdx);
-		file << node->getPath() << "->" << child->getPath() << endl;
+		string childPath = child->getPath();
+
+		file << nodePath;
+		file << " [label=\"";
+		child->getState()->getGrid()->debugPrint(file);
+		file << "\"]\n";
+
+		file << nodePath << "->" << childPath;
+		file << " [label=\"";
+		child->getAction().debugPrint(file);
+		file << "\"]\n";
 
 		printChildren(child, file);
 	}
@@ -1361,13 +1414,24 @@ void Game::initGame() {
 
 void Game::gameLoop() {
 	while (true) {
+		clock_t begin = clock();
+
 		getTurnInput();
 		turnBegin();
 		makeTurn();
 		turnEnd();
 
-		if (USE_HARDCODED_INPUT && 2 == turnsCount) {
-			break;
+		if (USE_HARDCODED_INPUT) {
+			clock_t end = clock();
+			double elapsedMilliSecs = double(end - begin);
+
+			cout << endl;
+			cout << "Turn " << turnsCount << " milliseconds: " << elapsedMilliSecs << endl;
+			cout << endl;
+
+			if (BREAK_TURN == turnsCount) {
+				break;
+			}
 		}
 	}
 }
