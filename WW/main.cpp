@@ -690,6 +690,7 @@ public:
 	bool isTerminal() const;
 	void updateScore();
 	void clearUnitsActions();
+	bool unitOnCell(Coords position) const;
 
 	void debug() const;
 
@@ -794,7 +795,7 @@ void State::setMiniMaxUnitTurnActions() {
 		for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
 			Coords newPosition = unitPosition + DIRECTIONS[dirIdx];
 
-			if (grid->validPosition(newPosition)) {
+			if (grid->validPosition(newPosition) && !unitOnCell(newPosition)) {
 				MinimaxAction newAction;
 
 				if (grid->canMoveFromTo(unitPosition, newPosition)) {
@@ -868,6 +869,22 @@ void State::clearUnitsActions() {
 		Unit* unit = units[unitIdx];
 		unit->clearActions();
 	}
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool State::unitOnCell(Coords position) const {
+	bool onCell = false;
+
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		if (units[unitIdx]->getPosition() == position) {
+			onCell = true;
+			break;
+		}
+	}
+
+	return onCell;
 }
 
 //*************************************************************************************************************
