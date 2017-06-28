@@ -14,7 +14,7 @@ using namespace std;
 
 const int USE_HARDCODED_INPUT = 0;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
-const int MINIMAX_DEPTH = 4;
+const int MINIMAX_DEPTH = 8;
 const int BREAK_TURN = 1;
 const int USE_RAND_HEURISTIC = 0;
 
@@ -696,6 +696,7 @@ public:
 	void updateScore();
 	void clearUnitsActions();
 	bool unitOnCell(Coords position) const;
+	bool unitBlocked(UnitIds unitId) const;
 
 	void debug() const;
 
@@ -751,6 +752,14 @@ void State::simulate(int unitIdx, MinimaxAction action) {
 //*************************************************************************************************************
 
 int State::evaluate() const {
+	if (unitBlocked(UI_MY_UNIT)) {
+		return INT_MIN;
+	}
+
+	if (unitBlocked(UI_ENEMY_UNIT)) {
+		return INT_MAX;
+	}
+
 	int score = 0;
 	int surroundingLevels = 0;
 	int unitLevel = 0;
@@ -858,6 +867,7 @@ void State::setUnitPosetion(int unitIdx, Posetion posetion) {
 //*************************************************************************************************************
 
 bool State::isTerminal() const {
+
 	return false;
 }
 
@@ -900,6 +910,27 @@ bool State::unitOnCell(Coords position) const {
 	}
 
 	return onCell;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool State::unitBlocked(UnitIds unitId) const {
+	bool blocked = true;
+	Coords unitCoords = units[unitId]->getPosition();
+	char unitLevel = grid->getCell(unitCoords);
+
+	for (int dirIdx = 0; dirIdx < DIRECTION_COUNT; ++dirIdx) {
+		Coords newPosition = unitCoords + DIRECTIONS[dirIdx];
+
+		if (grid->validPosition(newPosition)) {
+			if (grid->canMoveFromTo(unitCoords, newPosition)) {
+				blocked = false;
+				break;
+			}
+		}
+	}
+	return blocked;
 }
 
 //*************************************************************************************************************
