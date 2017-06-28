@@ -14,7 +14,7 @@ using namespace std;
 
 const int USE_HARDCODED_INPUT = 0;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
-const int MINIMAX_DEPTH = 8;
+const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
 const int USE_RAND_HEURISTIC = 0;
 
@@ -108,6 +108,8 @@ public:
 	Coords& operator+=(const Coords& other);
 	friend ostream& operator<<(ostream& os, const Coords& c);
 
+	bool isValid() const;
+
 	void debug() const;
 private:
 	int xCoord;
@@ -174,6 +176,13 @@ Coords& Coords::operator+=(const Coords& other) {
 	yCoord += other.yCoord;
 
 	return *this;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool Coords::isValid() const {
+	return xCoord > INVALID_COORD && yCoord > INVALID_COORD;
 }
 
 //*************************************************************************************************************
@@ -692,7 +701,7 @@ public:
 	void copy(const State& state);
 	void setUnitPosition(int unitIdx, Coords position);
 	void setUnitPosetion(int unitIdx, Posetion posetion);
-	bool isTerminal() const;
+	bool isTerminal(UnitIds unitIdx) const;
 	void updateScore();
 	void clearUnitsActions();
 	bool unitOnCell(Coords position) const;
@@ -866,9 +875,8 @@ void State::setUnitPosetion(int unitIdx, Posetion posetion) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool State::isTerminal() const {
-
-	return false;
+bool State::isTerminal(UnitIds unitIdx) const {
+	return unitBlocked(unitIdx);
 }
 
 //*************************************************************************************************************
@@ -924,7 +932,7 @@ bool State::unitBlocked(UnitIds unitId) const {
 		Coords newPosition = unitCoords + DIRECTIONS[dirIdx];
 
 		if (grid->validPosition(newPosition)) {
-			if (grid->canMoveFromTo(unitCoords, newPosition)) {
+			if (!unitOnCell(newPosition) && grid->canMoveFromTo(unitCoords, newPosition)) {
 				blocked = false;
 				break;
 			}
@@ -1276,7 +1284,9 @@ void Minimax::run() {
 		printTreeToFile();
 	}
 
-	backtrack(res.bestLeaveNode);
+	if (res.bestLeaveNode) {
+		backtrack(res.bestLeaveNode);
+	}
 }
 
 //*************************************************************************************************************
@@ -1370,7 +1380,7 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 	State* state = node->getState();
 	Unit* unit = state->getUnit(unitIdx);
 
-	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
+	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal((UnitIds)unitIdx)) {
 		int eval = state->evaluate();
 		node->setEvalValue(eval);
 		return MinimaxResult(node, eval);
@@ -1422,7 +1432,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 	State* state = node->getState();
 	Unit* unit = state->getUnit(unitIdx);
 
-	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
+	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal((UnitIds)unitIdx)) {
 		int eval = state->evaluate();
 		node->setEvalValue(eval);
 		return MinimaxResult(node, eval);
@@ -1578,6 +1588,23 @@ void Game::getTurnInput() {
 
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
+
+				if (0 == rowIdx && 0 == colIdx) { c = '1'; };
+				if (0 == rowIdx && 1 == colIdx) { c = '3'; };
+				if (0 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (0 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (0 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 0 == colIdx) { c = '1'; };
+				if (1 == rowIdx && 1 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (2 == rowIdx && 0 == colIdx) { c = '1'; };
+				if (2 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (2 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (2 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 2 == colIdx) { c = '1'; };
+				if (3 == rowIdx && 4 == colIdx) { c = '1'; };
 			}
 			else {
 				cin >> c; 
@@ -1599,12 +1626,12 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 3; unitY = 0; }
-			if (1 == unitIdx) { unitX = 0; unitY = 0; }
+			if (0 == unitIdx) { unitX = 0; unitY = 0; }
+			if (1 == unitIdx) { unitX = 0; unitY = 1; }
 		}
 		else {
 			cin >> unitX >> unitY;
-			cerr << unitX << ' ' << unitY << endl;
+			//cerr << unitX << ' ' << unitY << endl;
 		}
 
 		Posetion posetion = P_MINE;
@@ -1669,16 +1696,22 @@ void Game::play() {
 //*************************************************************************************************************
 
 string Game::coordsToDirection(Coords from, Coords to) const {
-	int dirIdx = 0;
-	for (; dirIdx < DIRECTION_COUNT; ++dirIdx) {
-		Coords newCoords = from + DIRECTIONS[dirIdx];
+	string res = "";
 
-		if (newCoords == to) {
-			break;
+	if (from.isValid() && to.isValid()) {
+		int dirIdx = 0;
+		for (; dirIdx < DIRECTION_COUNT; ++dirIdx) {
+			Coords newCoords = from + DIRECTIONS[dirIdx];
+
+			if (newCoords == to) {
+				break;
+			}
 		}
+
+		res = DIR_STRS[dirIdx];
 	}
 
-	return DIR_STRS[dirIdx];
+	return res;
 }
 
 //*************************************************************************************************************
