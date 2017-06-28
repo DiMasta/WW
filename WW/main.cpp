@@ -16,9 +16,11 @@ const int USE_HARDCODED_INPUT = 0;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
+const int USE_RAND_HEURISTIC = 0;
 
 const int SCORE_WEIGHT = 800;
 const int LEVELS_WEIGHT = 200;
+const int UNIT_LEVEL_WEIGHT = 500;
 
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
@@ -751,15 +753,18 @@ void State::simulate(int unitIdx, MinimaxAction action) {
 int State::evaluate() const {
 	int score = 0;
 	int surroundingLevels = 0;
+	int unitLevel = 0;
 
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
 		Unit* unit = units[unitIdx];
+		Coords position = unit->getPosition();
 		Posetion posetion = unit->getPosetion();
 
 		int unitScore = unit->getScore();
 		int unitSurroundingLevels = grid->getSurroundingLevels(unit->getPosition());
 
 		if (P_MINE == posetion) {
+			unitLevel = grid->getCell(position) - LEVEL_0;
 			score += unitScore;
 			surroundingLevels += unitSurroundingLevels;
 		}
@@ -769,10 +774,17 @@ int State::evaluate() const {
 		}
 	}
 
-	int heuristic = (score * SCORE_WEIGHT) + (surroundingLevels * LEVELS_WEIGHT);
+	int heuristic =
+		(score * SCORE_WEIGHT) +
+		(surroundingLevels * LEVELS_WEIGHT) +
+		(unitLevel * UNIT_LEVEL_WEIGHT);
 
-	//return heuristic;
-	return rand() % 100;
+	int res = heuristic;
+	if (USE_RAND_HEURISTIC) {
+		res = rand() % 100;
+	}
+
+	return res;
 }
 
 //*************************************************************************************************************
