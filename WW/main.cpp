@@ -12,7 +12,7 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 0;
+const int USE_HARDCODED_INPUT = 1;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
@@ -20,7 +20,7 @@ const int USE_RAND_HEURISTIC = 0;
 
 const int SCORE_WEIGHT = 800;
 const int LEVELS_WEIGHT = 200;
-const int UNIT_LEVEL_WEIGHT = 500;
+const int UNIT_LEVEL_WEIGHT = 1000;
 
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
@@ -315,7 +315,7 @@ bool Grid::canMoveFromTo(Coords from, Coords to) const {
 bool Grid::canBuildFromTo(Coords from, Coords to) const {
 	char cellToLevel = getCell(to);
 
-	return cellToLevel < LEVEL_3;
+	return cellToLevel <= LEVEL_3;
 }
 
 //*************************************************************************************************************
@@ -355,7 +355,10 @@ int Grid::getSurroundingLevels(Coords coords) const {
 		Coords newPosition = coords + DIRECTIONS[dirIdx];
 
 		if (validPosition(newPosition)) {
-			surroudingLevels += getCell(newPosition) - LEVEL_0;
+			char cell = getCell(newPosition);
+			if (LEVEL_0 >= cell && cell <= LEVEL_3) {
+				surroudingLevels += cell - LEVEL_0;
+			}
 		}
 	}
 	return surroudingLevels;
@@ -1589,29 +1592,24 @@ void Game::getTurnInput() {
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
 
-				if (0 == rowIdx && 0 == colIdx) { c = '1'; };
-				if (0 == rowIdx && 1 == colIdx) { c = '3'; };
-				if (0 == rowIdx && 2 == colIdx) { c = '4'; };
-				if (0 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (0 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (1 == rowIdx && 0 == colIdx) { c = '1'; };
-				if (1 == rowIdx && 1 == colIdx) { c = '4'; };
-				if (1 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (0 == rowIdx && 2 == colIdx) { c = '1'; };
+				if (1 == rowIdx && 2 == colIdx) { c = '1'; };
 				if (1 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (1 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (2 == rowIdx && 0 == colIdx) { c = '1'; };
-				if (2 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 4 == colIdx) { c = '2'; };
+				if (2 == rowIdx && 2 == colIdx) { c = '1'; };
 				if (2 == rowIdx && 3 == colIdx) { c = '4'; };
 				if (2 == rowIdx && 4 == colIdx) { c = '4'; };
 				if (3 == rowIdx && 2 == colIdx) { c = '1'; };
-				if (3 == rowIdx && 4 == colIdx) { c = '1'; };
+				if (3 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 4 == colIdx) { c = '2'; };
 			}
 			else {
-				cin >> c; 
+				cin >> c;
 
-				//if (LEVEL_0 != c) {
-				//	cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
-				//}
+				if (LEVEL_0 != c) {
+					cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
+				}
 			}
 
 			if (LEVEL_3 < c) {
@@ -1626,12 +1624,12 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 0; unitY = 0; }
-			if (1 == unitIdx) { unitX = 0; unitY = 1; }
+			if (0 == unitIdx) { unitX = 2; unitY = 1; }
+			if (1 == unitIdx) { unitX = 4; unitY = 1; }
 		}
 		else {
 			cin >> unitX >> unitY;
-			//cerr << unitX << ' ' << unitY << endl;
+			cerr << unitX << ' ' << unitY << endl;
 		}
 
 		Posetion posetion = P_MINE;
