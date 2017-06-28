@@ -1245,15 +1245,14 @@ void Minimax::backtrack(Node* node) {
 void Minimax::printChildren(Node* node, ofstream& file) {
 	string nodePath = node->getPath();
 
+	file << nodePath << " [label=\"";
+	node->getState()->getGrid()->debugPrint(file);
+	file << nodePath << "\\n";
+
 	if (0 == node->getChildrenCount()) {
-		file << nodePath << " [label=\"";
-		node->getState()->getGrid()->debugPrint(file);
-		file << nodePath << "\\n" << node->getState()->evaluate() << "\"]\n";
+		file << node->getState()->evaluate();
 	}
 
-	file << nodePath;
-	file << " [label=\"";
-	node->getState()->getGrid()->debugPrint(file);
 	file << "\"]\n";
 
 	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
