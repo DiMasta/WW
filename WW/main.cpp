@@ -13,7 +13,7 @@
 using namespace std;
 
 const int USE_HARDCODED_INPUT = 0;
-const int PRINT_MINIMAX_TREE_TO_FILE = 1;
+const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
 
@@ -30,7 +30,7 @@ const int INVALID_INDEX = -1;
 const int INVALID_NODE_DEPTH = -1;
 const int GAME_UNITS_COUNT = 2;
 const int PLAYER_UNITS_COUNT = 1;
-const int BUILD_NODE_DEPTH = 3;
+const int BUILD_NODE_DEPTH = 2;
 const int MOVE_NODE_DEPTH = 1;
 
 const char PARENT_LABEL = 'P';
@@ -771,7 +771,8 @@ int State::evaluate() const {
 
 	int heuristic = (score * SCORE_WEIGHT) + (surroundingLevels * LEVELS_WEIGHT);
 
-	return heuristic;
+	//return heuristic;
+	return rand() % 100;
 }
 
 //*************************************************************************************************************
@@ -936,12 +937,17 @@ public:
 		return children[childIdx];
 	}
 
+	int getEvaliValue() const {
+		return evalValue;
+	}
+
 	void setState(State* state) { this->state = state; }
 	void setNodeDepth(int nodeDepth) { this->nodeDepth = nodeDepth; }
 	void setNodeAction(MinimaxAction action) { this->action = action; }
 	void setParent(Node* parent) { this->parent = parent; }
 	void setLabel(char label) { this->label = label; }
 	void setPath(string path) { this->path = path; }
+	void setEvalValue(int evalValue) { this->evalValue = evalValue; }
 
 	Node* createChild(
 		int unitIdx,
@@ -964,6 +970,7 @@ private:
 
 	string path;
 	char label;
+	int evalValue;
 };
 
 //*************************************************************************************************************
@@ -977,7 +984,8 @@ Node::Node() :
 	children(NULL),
 	action(),
 	path(),
-	label(PARENT_LABEL)
+	label(PARENT_LABEL),
+	evalValue(0)
 {
 }
 
@@ -1088,6 +1096,11 @@ void Node::setTreePath() {
 //-------------------------------------------------------------------------------------------------------------
 
 struct MinimaxResult {
+	MinimaxResult() :
+		bestLeaveNode(NULL),
+		evaluationValue(0)
+	{}
+
 	MinimaxResult(
 		Node* bestLeaveNode,
 		int evaluationValue
@@ -1118,6 +1131,7 @@ public:
 	}
 
 	MinimaxActionType currentActionType(MinimaxActionType parentAction, MaximizeMinimize mm) const;
+	UnitIds nextUnitToExpand(MinimaxActionType nodeAction, MaximizeMinimize mm) const;
 	void init(const State& state);
 	void run();
 	void deleteTree(Node* node);
@@ -1158,23 +1172,42 @@ Minimax::~Minimax() {
 MinimaxActionType Minimax::currentActionType(MinimaxActionType parentAction, MaximizeMinimize mm) const {
 	MinimaxActionType action = MMAT_INVALID;
 
-	if (MMAT_BUILD == parentAction && MM_MAXIMIZE == mm) {
-		action = MMAT_MOVE;
-	}
+	//if (MMAT_BUILD == parentAction && MM_MAXIMIZE == mm) {
+	//	action = MMAT_MOVE;
+	//}
+	//
+	//if (MMAT_MOVE == parentAction && MM_MINIMIZE == mm) {
+	//	action = MMAT_MOVE;
+	//}
+	//
+	//if (MMAT_MOVE == parentAction && MM_MAXIMIZE == mm) {
+	//	action = MMAT_BUILD;
+	//}
+	//
+	//if (MMAT_BUILD == parentAction && MM_MINIMIZE == mm) {
+	//	action = MMAT_BUILD;
+	//}
 
-	if (MMAT_MOVE == parentAction && MM_MINIMIZE == mm) {
-		action = MMAT_MOVE;
-	}
-
-	if (MMAT_MOVE == parentAction && MM_MAXIMIZE == mm) {
+	if (MMAT_MOVE == parentAction) {
 		action = MMAT_BUILD;
 	}
-
-	if (MMAT_BUILD == parentAction && MM_MINIMIZE == mm) {
-		action = MMAT_BUILD;
+	
+	if (MMAT_BUILD == parentAction) {
+		action = MMAT_MOVE;
 	}
 
 	return action;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+UnitIds Minimax::nextUnitToExpand(MinimaxActionType nodeAction, MaximizeMinimize mm) const {
+	UnitIds unitId = UI_INVALID;
+
+
+
+	return unitId;
 }
 
 //*************************************************************************************************************
@@ -1257,11 +1290,7 @@ void Minimax::printChildren(Node* node, ofstream& file) {
 	file << nodePath << " [label=\"";
 	node->getState()->getGrid()->debugPrint(file);
 	file << nodePath << "\\n";
-
-	if (0 == node->getChildrenCount()) {
-		file << node->getState()->evaluate();
-	}
-
+	file << node->getEvaliValue();
 	file << "\"]\n";
 
 	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
@@ -1300,6 +1329,7 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 
 	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
 		int eval = state->evaluate();
+		node->setEvalValue(eval);
 		return MinimaxResult(node, eval);
 	}
 
@@ -1316,10 +1346,17 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth() + 1);
 		node->addChild(child);
 
-		MinimaxResult minRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
+		MinimaxResult minMaxRes;
+		if (MMAT_BUILD == node->getAction().getType() && UI_MY_UNIT == unitIdx) {
+			minMaxRes = maximize(child, UI_MY_UNIT, alpha, beta);
+		}
+		else {
+			minMaxRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
 
-		if (minRes.evaluationValue > res.evaluationValue) {
-			res = minRes;
+		}
+
+		if (minMaxRes.evaluationValue > res.evaluationValue) {
+			res = minMaxRes;
 		}
 
 		if (res.evaluationValue >= beta) {
@@ -1331,6 +1368,7 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 		}
 	}
 
+	node->setEvalValue(res.evaluationValue);
 	return res;
 }
 
@@ -1343,6 +1381,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 
 	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal()) {
 		int eval = state->evaluate();
+		node->setEvalValue(eval);
 		return MinimaxResult(node, eval);
 	}
 
@@ -1359,10 +1398,16 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth() + 1);
 		node->addChild(child);
 
-		MinimaxResult maxRes = maximize(child, UI_MY_UNIT, alpha, beta);
+		MinimaxResult minMaxRes;
+		if (MMAT_MOVE == node->getAction().getType() && UI_MY_UNIT == unitIdx) {
+			minMaxRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
+		}
+		else {
+			minMaxRes = maximize(child, UI_MY_UNIT, alpha, beta);
+		}
 
-		if (maxRes.evaluationValue < res.evaluationValue) {
-			res = maxRes;
+		if (minMaxRes.evaluationValue < res.evaluationValue) {
+			res = minMaxRes;
 		}
 
 		if (res.evaluationValue <= alpha) {
@@ -1374,6 +1419,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 		}
 	}
 
+	node->setEvalValue(res.evaluationValue);
 	return res;
 }
 
@@ -1489,35 +1535,29 @@ void Game::getTurnInput() {
 
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
-
-				if (0 == rowIdx && 2 == colIdx) { c = '4'; };
-				if (0 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (0 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (1 == rowIdx && 2 == colIdx) { c = '3'; };
-				if (1 == rowIdx && 4 == colIdx) { c = '3'; };
-				if (2 == rowIdx && 2 == colIdx) { c = '2'; };
-				if (2 == rowIdx && 4 == colIdx) { c = '3'; };
-				if (3 == rowIdx && 4 == colIdx) { c = '3'; };
 			}
 			else {
 				cin >> c; 
 
-				if (LEVEL_0 != c) {
-					cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
-				}
+				//if (LEVEL_0 != c) {
+				//	cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
+				//}
+			}
+
+			if (LEVEL_3 < c) {
+				c = DOT;
 			}
 
 			turnState.getGrid()->setCell(Coords(colIdx, rowIdx), c);
 		}
-		//cerr << endl;
 	}
 
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 3; unitY = 2; }
-			if (1 == unitIdx) { unitX = 2; unitY = 2; }
+			if (0 == unitIdx) { unitX = 3; unitY = 0; }
+			if (1 == unitIdx) { unitX = 0; unitY = 0; }
 		}
 		else {
 			cin >> unitX >> unitY;
