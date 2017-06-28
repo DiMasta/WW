@@ -248,14 +248,14 @@ Grid::~Grid() {
 //*************************************************************************************************************
 
 char Grid::getCell(Coords position) const {
-	return grid[position.getXCoord()][position.getYCoord()];
+	return grid[position.getYCoord()][position.getXCoord()];
 }
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 void Grid::setCell(Coords position, char c) {
-	grid[position.getXCoord()][position.getYCoord()] = c;
+	grid[position.getYCoord()][position.getXCoord()] = c;
 }
 
 //*************************************************************************************************************
@@ -737,7 +737,6 @@ void State::simulate(int unitIdx, MinimaxAction action) {
 	}
 	else if (MMAT_BUILD == action.getType()) {
 		grid->build(action.getCoords());
-		grid->setCell(action.getCoords(), grid->getCell(action.getCoords()) + 1);
 	}
 
 	setMiniMaxUnitTurnActions();
@@ -1252,14 +1251,14 @@ void Minimax::printChildren(Node* node, ofstream& file) {
 		file << nodePath << "\\n" << node->getState()->evaluate() << "\"]\n";
 	}
 
+	file << nodePath;
+	file << " [label=\"";
+	node->getState()->getGrid()->debugPrint(file);
+	file << "\"]\n";
+
 	for (int childIdx = 0; childIdx < node->getChildrenCount(); ++childIdx) {
 		Node* child = node->getChild(childIdx);
 		string childPath = child->getPath();
-
-		file << nodePath;
-		file << " [label=\"";
-		child->getState()->getGrid()->debugPrint(file);
-		file << "\"]\n";
 
 		file << nodePath << "->" << childPath;
 		file << " [label=\"";
