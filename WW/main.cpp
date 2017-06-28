@@ -12,7 +12,8 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 1;
+const int USE_HARDCODED_INPUT = 0;
+const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
 
@@ -679,6 +680,8 @@ public:
 		return units[unitIdx];
 	}
 
+	void setGrid(Grid* grid) { this->grid = grid; }
+
 	void simulate(int unitIdx, MinimaxAction action);
 	int evaluate() const;
 	void init(int gridSize);
@@ -982,7 +985,7 @@ Node::Node() :
 //*************************************************************************************************************
 
 Node::~Node() {
-	if (state) {
+	if (state && MMAT_BUILD == action.getType()) {
 		delete state;
 		state = NULL;
 	}
@@ -1002,23 +1005,27 @@ Node* Node::createChild(
 	Node* child = new Node();
 	child->init(state->getGrid()->getGridSize());
 
-	child->getState()->getGrid()->copy(state->getGrid());
+	Unit* unit = parent->state->getUnit(unitIdx);
+	MinimaxAction action = unit->getMinimaxAction(actionIdx);
+
+	if (MMAT_BUILD == action.getType()) {
+		child->getState()->getGrid()->copy(state->getGrid());
+	}
+	else if (MMAT_MOVE == action.getType()) {
+		child->getState()->setGrid(state->getGrid());
+	}
 
 	for (int i = 0; i < GAME_UNITS_COUNT; ++i) {
 		child->getState()->getUnit(i)->setPosition(state->getUnit(i)->getPosition());
 		child->getState()->getUnit(i)->setPosetion(state->getUnit(i)->getPosetion());
 	}
 
-
 	child->setNodeDepth(nodeDepth);
 	child->setParent(parent);
-
-	Unit* unit = parent->state->getUnit(unitIdx);
-	MinimaxAction action = unit->getMinimaxAction(actionIdx);
-
 	child->setNodeAction(action);
 
 	child->getState()->simulate(unitIdx, action);
+
 	char label = 'A' + actionIdx;
 	child->setLabel(label);
 	child->setTreePath();
@@ -1189,7 +1196,9 @@ void Minimax::init(const State& state) {
 void Minimax::run() {
 	MinimaxResult res = maximize(tree, UI_MY_UNIT, INT_MIN, INT_MAX);
 
-	printTreeToFile();
+	if (PRINT_MINIMAX_TREE_TO_FILE) {
+		printTreeToFile();
+	}
 
 	backtrack(res.bestLeaveNode);
 }
