@@ -765,11 +765,11 @@ void State::simulate(int unitIdx, MinimaxAction action) {
 
 int State::evaluate() const {
 	if (unitBlocked(UI_MY_UNIT)) {
-		return INT_MIN;
+		return INT_MIN + 1;
 	}
 
 	if (unitBlocked(UI_ENEMY_UNIT)) {
-		return INT_MAX;
+		return INT_MAX - 1;
 	}
 
 	int score = 0;
@@ -1408,7 +1408,6 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 		}
 		else {
 			minMaxRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
-
 		}
 
 		if (minMaxRes.evaluationValue > res.evaluationValue) {
@@ -1595,9 +1594,9 @@ void Game::getTurnInput() {
 			else {
 				cin >> c;
 
-				if (LEVEL_0 != c) {
-					//cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
-				}
+				///if (LEVEL_0 != c) {
+				///	cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
+				///}
 			}
 
 			if (LEVEL_3 < c) {
