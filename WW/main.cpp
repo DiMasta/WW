@@ -12,15 +12,17 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 1;
+const int USE_HARDCODED_INPUT = 0;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
-const int MINIMAX_DEPTH = 4;
+const int OUTPUT_FOR_DEBUG = 0;
+const int MINIMAX_DEPTH = 5;
 const int BREAK_TURN = 1;
 const int USE_RAND_HEURISTIC = 0;
 
 const int SCORE_WEIGHT = 800;
 const int LEVELS_WEIGHT = 200;
 const int UNIT_LEVEL_WEIGHT = 1000;
+const int UNIT_ON_LEVEL_3_WEIGHT = 0;
 
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
@@ -45,12 +47,6 @@ const char LEVEL_0 = '0';
 const char LEVEL_1 = '1';
 const char LEVEL_2 = '2';
 const char LEVEL_3 = '3';
-
-enum UnitIds {
-	UI_INVALID = -1,
-	UI_MY_UNIT = 0,
-	UI_ENEMY_UNIT = 1,
-};
 
 enum MaximizeMinimize {
 	MM_MAXIMIZE = 0,
@@ -783,11 +779,11 @@ void State::simulate(int unitIdx, MinimaxAction action) {
 //*************************************************************************************************************
 
 int State::evaluate() const {
-	if (unitBlocked(UI_MY_UNIT)) {
+	if (unitBlocked(myBestUnit)) {
 		return INT_MIN + 1;
 	}
 
-	if (unitBlocked(UI_ENEMY_UNIT)) {
+	if (unitBlocked(enemyBestUnit)) {
 		return INT_MAX - 1;
 	}
 
@@ -975,7 +971,7 @@ bool State::unitBlocked(int unitId) const {
 
 int State::chooseBestUnit(Posetion posetion) const {
 	int bestUnitLevels = 0;
-	int bestUnitIdx = 0;
+	int bestUnitIdx = INVALID_INDEX;
 
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
 		if (unitBlocked(unitIdx)) {
@@ -1335,7 +1331,7 @@ MinimaxActionType Minimax::currentActionType(MinimaxActionType parentAction, Max
 //*************************************************************************************************************
 
 int Minimax::nextUnitToExpand(MinimaxActionType nodeAction, MaximizeMinimize mm) const {
-	int unitId = UI_INVALID;
+	int unitId = INVALID_INDEX;
 
 
 
@@ -1645,7 +1641,7 @@ void Game::gameLoop() {
 
 void Game::getGameInput() {
 	if (USE_HARDCODED_INPUT) {
-		size = 5;
+		size = 7;
 		unitsPerPlayer = 2;
 	}
 	else {
@@ -1679,39 +1675,40 @@ void Game::getTurnInput() {
 				if (0 == rowIdx && 6 == colIdx) { c = '.'; };
 				if (1 == rowIdx && 0 == colIdx) { c = '.'; };
 				if (1 == rowIdx && 1 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 2 == colIdx) { c = '2'; };
-				if (1 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 3 == colIdx) { c = '3'; };
 				if (1 == rowIdx && 4 == colIdx) { c = '4'; };
 				if (1 == rowIdx && 5 == colIdx) { c = '.'; };
 				if (1 == rowIdx && 6 == colIdx) { c = '.'; };
 				if (2 == rowIdx && 0 == colIdx) { c = '.'; };
-				if (2 == rowIdx && 1 == colIdx) { c = '3'; };
-				if (2 == rowIdx && 2 == colIdx) { c = '3'; };
-				if (2 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (2 == rowIdx && 1 == colIdx) { c = '2'; };
+				if (2 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (2 == rowIdx && 3 == colIdx) { c = '3'; };
+				if (2 == rowIdx && 4 == colIdx) { c = '4'; };
 				if (2 == rowIdx && 6 == colIdx) { c = '.'; };
-				if (3 == rowIdx && 0 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 0 == colIdx) { c = '2'; };
 				if (3 == rowIdx && 1 == colIdx) { c = '4'; };
 				if (3 == rowIdx && 2 == colIdx) { c = '4'; };
 				if (3 == rowIdx && 3 == colIdx) { c = '4'; };
 				if (3 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 5 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 6 == colIdx) { c = '2'; };
 				if (4 == rowIdx && 0 == colIdx) { c = '.'; };
-				if (4 == rowIdx && 1 == colIdx) { c = '4'; };
 				if (4 == rowIdx && 2 == colIdx) { c = '4'; };
-				if (4 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (4 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (4 == rowIdx && 5 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 3 == colIdx) { c = '3'; };
+				if (4 == rowIdx && 4 == colIdx) { c = '2'; };
 				if (4 == rowIdx && 6 == colIdx) { c = '.'; };
 				if (5 == rowIdx && 0 == colIdx) { c = '.'; };
 				if (5 == rowIdx && 1 == colIdx) { c = '.'; };
-				if (5 == rowIdx && 2 == colIdx) { c = '4'; };
-				if (5 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (5 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (5 == rowIdx && 2 == colIdx) { c = '2'; };
+				if (5 == rowIdx && 3 == colIdx) { c = '3'; };
+				if (5 == rowIdx && 4 == colIdx) { c = '2'; };
 				if (5 == rowIdx && 5 == colIdx) { c = '.'; };
 				if (5 == rowIdx && 6 == colIdx) { c = '.'; };
 				if (6 == rowIdx && 0 == colIdx) { c = '.'; };
 				if (6 == rowIdx && 1 == colIdx) { c = '.'; };
 				if (6 == rowIdx && 2 == colIdx) { c = '.'; };
-				if (6 == rowIdx && 3 == colIdx) { c = '3'; };
+				if (6 == rowIdx && 3 == colIdx) { c = '2'; };
 				if (6 == rowIdx && 4 == colIdx) { c = '.'; };
 				if (6 == rowIdx && 5 == colIdx) { c = '.'; };
 				if (6 == rowIdx && 6 == colIdx) { c = '.'; };
@@ -1719,8 +1716,8 @@ void Game::getTurnInput() {
 			else {
 				cin >> c;
 
-				if (LEVEL_0 != c) {
-					cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
+				if (OUTPUT_FOR_DEBUG) {
+					if (LEVEL_0 != c) { cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n"; }
 				}
 			}
 
@@ -1736,14 +1733,17 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 3; unitY = 6; }
-			if (1 == unitIdx) { unitX = 1; unitY = 2; }
-			if (2 == unitIdx) { unitX = 2; unitY = 1; }
-			if (3 == unitIdx) { unitX = 2; unitY = 2; }
+			if (0 == unitIdx) { unitX = 4; unitY = 4; }
+			if (1 == unitIdx) { unitX = 5; unitY = 4; }
+			if (2 == unitIdx) { unitX = 5; unitY = 2; }
+			if (3 == unitIdx) { unitX = 1; unitY = 2; }
 		}
 		else {
 			cin >> unitX >> unitY;
-			cerr << "if (" << unitIdx << " == unitIdx) { unitX = " << unitX << "; unitY = " << unitY << "; }" << endl;
+
+			if (OUTPUT_FOR_DEBUG) {
+				cerr << "if (" << unitIdx << " == unitIdx) { unitX = " << unitX << "; unitY = " << unitY << "; }" << endl;
+			}
 		}
 
 		Posetion posetion = P_MINE;
