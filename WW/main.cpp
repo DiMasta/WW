@@ -12,7 +12,7 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 1;
+const int USE_HARDCODED_INPUT = 0;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
@@ -356,7 +356,7 @@ int Grid::getSurroundingLevels(Coords coords) const {
 
 		if (validPosition(newPosition)) {
 			char cell = getCell(newPosition);
-			if (LEVEL_0 >= cell && cell <= LEVEL_3) {
+			if (cell > LEVEL_0 && cell <= LEVEL_3) {
 				surroudingLevels += cell - LEVEL_0;
 			}
 		}
@@ -1455,7 +1455,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 		node->addChild(child);
 
 		MinimaxResult minMaxRes;
-		if (MMAT_MOVE == node->getAction().getType() && UI_MY_UNIT == unitIdx) {
+		if (MMAT_BUILD == node->getAction().getType() && UI_ENEMY_UNIT == unitIdx) {
 			minMaxRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
 		}
 		else {
@@ -1591,24 +1591,12 @@ void Game::getTurnInput() {
 
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
-
-				if (0 == rowIdx && 2 == colIdx) { c = '1'; };
-				if (1 == rowIdx && 2 == colIdx) { c = '1'; };
-				if (1 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (1 == rowIdx && 4 == colIdx) { c = '2'; };
-				if (2 == rowIdx && 2 == colIdx) { c = '1'; };
-				if (2 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (2 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (3 == rowIdx && 2 == colIdx) { c = '1'; };
-				if (3 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (3 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (4 == rowIdx && 4 == colIdx) { c = '2'; };
 			}
 			else {
 				cin >> c;
 
 				if (LEVEL_0 != c) {
-					cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
+					//cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
 				}
 			}
 
@@ -1624,12 +1612,12 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 2; unitY = 1; }
-			if (1 == unitIdx) { unitX = 4; unitY = 1; }
+			if (0 == unitIdx) { unitX = 3; unitY = 0; }
+			if (1 == unitIdx) { unitX = 0; unitY = 0; }
 		}
 		else {
 			cin >> unitX >> unitY;
-			cerr << unitX << ' ' << unitY << endl;
+			//cerr << unitX << ' ' << unitY << endl;
 		}
 
 		Posetion posetion = P_MINE;
