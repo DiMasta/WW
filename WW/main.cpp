@@ -12,7 +12,7 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 0;
+const int USE_HARDCODED_INPUT = 1;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
@@ -25,13 +25,14 @@ const int UNIT_LEVEL_WEIGHT = 1000;
 const string INVALID_STR = "";
 const string MOVE_BUILD_ACTION = "MOVE&BUILD";
 const string PARENT_PATH = "P";
+const string INVALID_OUTPUT = "NO_UNITS_TO_EXPAND";
 
 const int DIRECTION_COUNT = 8;
 const int INVALID_COORD = -1;
 const int INVALID_INDEX = -1;
 const int INVALID_NODE_DEPTH = -1;
-const int GAME_UNITS_COUNT = 2;
-const int PLAYER_UNITS_COUNT = 1;
+const int GAME_UNITS_COUNT = 4;
+const int PLAYER_UNITS_COUNT = 2;
 const int BUILD_NODE_DEPTH = 2;
 const int MOVE_NODE_DEPTH = 1;
 
@@ -694,7 +695,17 @@ public:
 		return units[unitIdx];
 	}
 
+	int getMyBestUnit() const {
+		return myBestUnit;
+	}
+
+	int getEnemyBestUnit() const {
+		return enemyBestUnit;
+	}
+
 	void setGrid(Grid* grid) { this->grid = grid; }
+	void setMyBestUnit(int myBestUnit) { this->myBestUnit = myBestUnit; }
+	void setEnemyBestUnit(int enemyBestUnit) { this->enemyBestUnit = enemyBestUnit; }
 
 	void simulate(int unitIdx, MinimaxAction action);
 	int evaluate() const;
@@ -704,24 +715,32 @@ public:
 	void copy(const State& state);
 	void setUnitPosition(int unitIdx, Coords position);
 	void setUnitPosetion(int unitIdx, Posetion posetion);
-	bool isTerminal(UnitIds unitIdx) const;
+	bool isTerminal(int unitIdx) const;
 	void updateScore();
 	void clearUnitsActions();
 	bool unitOnCell(Coords position) const;
-	bool unitBlocked(UnitIds unitId) const;
+	bool unitBlocked(int unitId) const;
+	int chooseBestUnit(Posetion posetion) const;
+	void chooseBestUnits();
+	bool hasPlayableUnit() const;
 
 	void debug() const;
 
 private:
 	Grid* grid;
 	Unit* units[GAME_UNITS_COUNT];
+
+	int myBestUnit;
+	int enemyBestUnit;
 };
 
 //*************************************************************************************************************
 //*************************************************************************************************************
 
 State::State() :
-	grid()
+	grid(),
+	myBestUnit(INVALID_INDEX),
+	enemyBestUnit(INVALID_INDEX)
 {
 }
 
@@ -825,6 +844,10 @@ void State::init(int gridSize) {
 
 void State::setMiniMaxUnitTurnActions() {
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		if (myBestUnit != unitIdx && enemyBestUnit != unitIdx) {
+			continue;
+		}
+
 		Coords unitPosition = units[unitIdx]->getPosition();
 		char cell = grid->getCell(unitPosition);
 
@@ -859,6 +882,9 @@ void State::copy(const State& state) {
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
 		units[unitIdx]->copy(state.getUnit(unitIdx));
 	}
+
+	myBestUnit = state.myBestUnit;
+	enemyBestUnit = state.enemyBestUnit;
 }
 
 //*************************************************************************************************************
@@ -878,7 +904,7 @@ void State::setUnitPosetion(int unitIdx, Posetion posetion) {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool State::isTerminal(UnitIds unitIdx) const {
+bool State::isTerminal(int unitIdx) const {
 	return unitBlocked(unitIdx);
 }
 
@@ -926,7 +952,7 @@ bool State::unitOnCell(Coords position) const {
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-bool State::unitBlocked(UnitIds unitId) const {
+bool State::unitBlocked(int unitId) const {
 	bool blocked = true;
 	Coords unitCoords = units[unitId]->getPosition();
 	char unitLevel = grid->getCell(unitCoords);
@@ -942,6 +968,50 @@ bool State::unitBlocked(UnitIds unitId) const {
 		}
 	}
 	return blocked;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+int State::chooseBestUnit(Posetion posetion) const {
+	int bestUnitLevels = 0;
+	int bestUnitIdx = 0;
+
+	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
+		if (unitBlocked(unitIdx)) {
+			continue;
+		}
+
+		Unit* unit = units[unitIdx];
+
+		if (posetion == unit->getPosetion()) {
+			int surroundingLevels = grid->getSurroundingLevels(unit->getPosition());
+			int unitLevel = grid->getCell(unit->getPosition()) - LEVEL_0;
+
+			int levels = surroundingLevels + unitLevel;
+			if (levels >= bestUnitLevels) {
+				bestUnitLevels = levels;
+				bestUnitIdx = unitIdx;
+			}
+		}
+	}
+
+	return bestUnitIdx;
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+void State::chooseBestUnits() {
+	myBestUnit = chooseBestUnit(P_MINE);
+	enemyBestUnit = chooseBestUnit(P_ENEMY);
+}
+
+//*************************************************************************************************************
+//*************************************************************************************************************
+
+bool State::hasPlayableUnit() const {
+	return myBestUnit != INVALID_INDEX;
 }
 
 //*************************************************************************************************************
@@ -1077,6 +1147,9 @@ Node* Node::createChild(
 		child->getState()->setGrid(state->getGrid());
 	}
 
+	child->getState()->setMyBestUnit(state->getMyBestUnit());
+	child->getState()->setEnemyBestUnit(state->getEnemyBestUnit());
+
 	for (int i = 0; i < GAME_UNITS_COUNT; ++i) {
 		child->getState()->getUnit(i)->setPosition(state->getUnit(i)->getPosition());
 		child->getState()->getUnit(i)->setPosetion(state->getUnit(i)->getPosetion());
@@ -1176,6 +1249,10 @@ public:
 	Minimax();
 	~Minimax();
 
+	int getPlayUnitIdx() const {
+		return playUnitIdx;
+	}
+
 	Coords getBuildCoords() const {
 		return buildCoords;
 	}
@@ -1185,7 +1262,7 @@ public:
 	}
 
 	MinimaxActionType currentActionType(MinimaxActionType parentAction, MaximizeMinimize mm) const;
-	UnitIds nextUnitToExpand(MinimaxActionType nodeAction, MaximizeMinimize mm) const;
+	int nextUnitToExpand(MinimaxActionType nodeAction, MaximizeMinimize mm) const;
 	void init(const State& state);
 	void run();
 	void deleteTree(Node* node);
@@ -1200,6 +1277,7 @@ public:
 private:
 	Node* tree;
 
+	int playUnitIdx;
 	Coords buildCoords;
 	Coords moveCoords;
 };
@@ -1256,8 +1334,8 @@ MinimaxActionType Minimax::currentActionType(MinimaxActionType parentAction, Max
 //*************************************************************************************************************
 //*************************************************************************************************************
 
-UnitIds Minimax::nextUnitToExpand(MinimaxActionType nodeAction, MaximizeMinimize mm) const {
-	UnitIds unitId = UI_INVALID;
+int Minimax::nextUnitToExpand(MinimaxActionType nodeAction, MaximizeMinimize mm) const {
+	int unitId = UI_INVALID;
 
 
 
@@ -1281,7 +1359,7 @@ void Minimax::init(const State& state) {
 //*************************************************************************************************************
 
 void Minimax::run() {
-	MinimaxResult res = maximize(tree, UI_MY_UNIT, INT_MIN, INT_MAX);
+	MinimaxResult res = maximize(tree, tree->getState()->getMyBestUnit(), INT_MIN, INT_MAX);
 
 	if (PRINT_MINIMAX_TREE_TO_FILE) {
 		printTreeToFile();
@@ -1289,6 +1367,7 @@ void Minimax::run() {
 
 	if (res.bestLeaveNode) {
 		backtrack(res.bestLeaveNode);
+		playUnitIdx = res.bestLeaveNode->getState()->getMyBestUnit();
 	}
 }
 
@@ -1383,7 +1462,7 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 	State* state = node->getState();
 	Unit* unit = state->getUnit(unitIdx);
 
-	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal((UnitIds)unitIdx)) {
+	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal(unitIdx)) {
 		int eval = state->evaluate();
 		node->setEvalValue(eval);
 		return MinimaxResult(node, eval);
@@ -1403,11 +1482,11 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 		node->addChild(child);
 
 		MinimaxResult minMaxRes;
-		if (MMAT_BUILD == node->getAction().getType() && UI_MY_UNIT == unitIdx) {
-			minMaxRes = maximize(child, UI_MY_UNIT, alpha, beta);
+		if (MMAT_BUILD == node->getAction().getType() && unitIdx < 2) {
+			minMaxRes = maximize(child, state->getMyBestUnit(), alpha, beta);
 		}
 		else {
-			minMaxRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
+			minMaxRes = minimize(child, state->getEnemyBestUnit(), alpha, beta);
 		}
 
 		if (minMaxRes.evaluationValue > res.evaluationValue) {
@@ -1434,7 +1513,7 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 	State* state = node->getState();
 	Unit* unit = state->getUnit(unitIdx);
 
-	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal((UnitIds)unitIdx)) {
+	if (MINIMAX_DEPTH == node->getNodeDepth() || state->isTerminal(unitIdx)) {
 		int eval = state->evaluate();
 		node->setEvalValue(eval);
 		return MinimaxResult(node, eval);
@@ -1454,11 +1533,11 @@ MinimaxResult Minimax::minimize(Node* node, int unitIdx, int alpha, int beta) {
 		node->addChild(child);
 
 		MinimaxResult minMaxRes;
-		if (MMAT_BUILD == node->getAction().getType() && UI_ENEMY_UNIT == unitIdx) {
-			minMaxRes = minimize(child, UI_ENEMY_UNIT, alpha, beta);
+		if (MMAT_BUILD == node->getAction().getType() && unitIdx > 1) {
+			minMaxRes = minimize(child, state->getEnemyBestUnit(), alpha, beta);
 		}
 		else {
-			minMaxRes = maximize(child, UI_MY_UNIT, alpha, beta);
+			minMaxRes = maximize(child, state->getMyBestUnit(), alpha, beta);
 		}
 
 		if (minMaxRes.evaluationValue < res.evaluationValue) {
@@ -1567,7 +1646,7 @@ void Game::gameLoop() {
 void Game::getGameInput() {
 	if (USE_HARDCODED_INPUT) {
 		size = 5;
-		unitsPerPlayer = 1;
+		unitsPerPlayer = 2;
 	}
 	else {
 		cin >> size;
@@ -1590,13 +1669,59 @@ void Game::getTurnInput() {
 
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
+
+				if (0 == rowIdx && 0 == colIdx) { c = '.'; };
+				if (0 == rowIdx && 1 == colIdx) { c = '.'; };
+				if (0 == rowIdx && 2 == colIdx) { c = '.'; };
+				if (0 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (0 == rowIdx && 4 == colIdx) { c = '.'; };
+				if (0 == rowIdx && 5 == colIdx) { c = '.'; };
+				if (0 == rowIdx && 6 == colIdx) { c = '.'; };
+				if (1 == rowIdx && 0 == colIdx) { c = '.'; };
+				if (1 == rowIdx && 1 == colIdx) { c = '.'; };
+				if (1 == rowIdx && 2 == colIdx) { c = '2'; };
+				if (1 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 5 == colIdx) { c = '.'; };
+				if (1 == rowIdx && 6 == colIdx) { c = '.'; };
+				if (2 == rowIdx && 0 == colIdx) { c = '.'; };
+				if (2 == rowIdx && 1 == colIdx) { c = '3'; };
+				if (2 == rowIdx && 2 == colIdx) { c = '3'; };
+				if (2 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (2 == rowIdx && 6 == colIdx) { c = '.'; };
+				if (3 == rowIdx && 0 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 1 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 0 == colIdx) { c = '.'; };
+				if (4 == rowIdx && 1 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 5 == colIdx) { c = '4'; };
+				if (4 == rowIdx && 6 == colIdx) { c = '.'; };
+				if (5 == rowIdx && 0 == colIdx) { c = '.'; };
+				if (5 == rowIdx && 1 == colIdx) { c = '.'; };
+				if (5 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (5 == rowIdx && 3 == colIdx) { c = '4'; };
+				if (5 == rowIdx && 4 == colIdx) { c = '4'; };
+				if (5 == rowIdx && 5 == colIdx) { c = '.'; };
+				if (5 == rowIdx && 6 == colIdx) { c = '.'; };
+				if (6 == rowIdx && 0 == colIdx) { c = '.'; };
+				if (6 == rowIdx && 1 == colIdx) { c = '.'; };
+				if (6 == rowIdx && 2 == colIdx) { c = '.'; };
+				if (6 == rowIdx && 3 == colIdx) { c = '3'; };
+				if (6 == rowIdx && 4 == colIdx) { c = '.'; };
+				if (6 == rowIdx && 5 == colIdx) { c = '.'; };
+				if (6 == rowIdx && 6 == colIdx) { c = '.'; };
 			}
 			else {
 				cin >> c;
 
-				///if (LEVEL_0 != c) {
-				///	cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
-				///}
+				if (LEVEL_0 != c) {
+					cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n";
+				}
 			}
 
 			if (LEVEL_3 < c) {
@@ -1611,12 +1736,14 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 3; unitY = 0; }
-			if (1 == unitIdx) { unitX = 0; unitY = 0; }
+			if (0 == unitIdx) { unitX = 3; unitY = 6; }
+			if (1 == unitIdx) { unitX = 1; unitY = 2; }
+			if (2 == unitIdx) { unitX = 2; unitY = 1; }
+			if (3 == unitIdx) { unitX = 2; unitY = 2; }
 		}
 		else {
 			cin >> unitX >> unitY;
-			//cerr << unitX << ' ' << unitY << endl;
+			cerr << "if (" << unitIdx << " == unitIdx) { unitX = " << unitX << "; unitY = " << unitY << "; }" << endl;
 		}
 
 		Posetion posetion = P_MINE;
@@ -1647,6 +1774,7 @@ void Game::getTurnInput() {
 //*************************************************************************************************************
 
 void Game::turnBegin() {
+	turnState.chooseBestUnits();
 	turnState.setMiniMaxUnitTurnActions();
 	minimax.init(turnState);
 }
@@ -1655,8 +1783,13 @@ void Game::turnBegin() {
 //*************************************************************************************************************
 
 void Game::makeTurn() {
-	minimax.run();
-	outPutMinimaxRes();
+	if (turnState.hasPlayableUnit()) {
+		minimax.run();
+		outPutMinimaxRes();
+	}
+	else {
+		cout << INVALID_OUTPUT << endl;
+	}
 }
 
 //*************************************************************************************************************
@@ -1703,12 +1836,12 @@ string Game::coordsToDirection(Coords from, Coords to) const {
 //*************************************************************************************************************
 
 void Game::outPutMinimaxRes() const {
-	const Coords myUnitPosition = turnState.getUnit(UI_MY_UNIT)->getPosition();
+	const Coords myUnitPosition = turnState.getUnit(minimax.getPlayUnitIdx())->getPosition();
 
 	const string moveDirection = coordsToDirection(myUnitPosition, minimax.getMoveCoords());
 	const string buildDirection = coordsToDirection(minimax.getMoveCoords(), minimax.getBuildCoords());
 
-	cout << MOVE_BUILD_ACTION << ' ' << UI_MY_UNIT << ' ' << moveDirection << ' ' << buildDirection << endl;
+	cout << MOVE_BUILD_ACTION << ' ' << minimax.getPlayUnitIdx() << ' ' << moveDirection << ' ' << buildDirection << endl;
 }
 
 //*************************************************************************************************************
@@ -1739,5 +1872,5 @@ int main(int argc, char** argv) {
 
 /*
 mapIndex=0
-seed=313480975
+seed=28456031
 */
