@@ -16,7 +16,7 @@ const int USE_HARDCODED_INPUT = 1;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int OUTPUT_FOR_DEBUG = 1;
 const int MINIMAX_DEPTH = 4;
-const int BREAK_TURN = 5;
+const int BREAK_TURN = 6;
 const int USE_RAND_HEURISTIC = 0;
 
 const int SCORE_WEIGHT = 800;
@@ -1650,7 +1650,7 @@ void Game::gameLoop() {
 
 void Game::getGameInput() {
 	if (USE_HARDCODED_INPUT) {
-		size = 6;
+		size = 5;
 		unitsPerPlayer = 2;
 	}
 	else {
