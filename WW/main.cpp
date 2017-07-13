@@ -12,10 +12,10 @@
 
 using namespace std;
 
-const int USE_HARDCODED_INPUT = 0;
+const int USE_HARDCODED_INPUT = 1;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
-const int OUTPUT_FOR_DEBUG = 0;
-const int MINIMAX_DEPTH = 5;
+const int OUTPUT_FOR_DEBUG = 1;
+const int MINIMAX_DEPTH = 4;
 const int BREAK_TURN = 1;
 const int USE_RAND_HEURISTIC = 0;
 
@@ -911,10 +911,13 @@ void State::updateScore() {
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
 		Unit* unit = units[unitIdx];
 		Coords unitPosition = unit->getPosition();
-		char cell = grid->getCell(unitPosition);
-		
-		if (LEVEL_3 == cell) {
-			unit->incrementScore();
+
+		if (unitPosition.isValid()) {
+			char cell = grid->getCell(unitPosition);
+
+			if (LEVEL_3 == cell) {
+				unit->incrementScore();
+			}
 		}
 	}
 }
@@ -974,11 +977,11 @@ int State::chooseBestUnit(Posetion posetion) const {
 	int bestUnitIdx = INVALID_INDEX;
 
 	for (int unitIdx = 0; unitIdx < GAME_UNITS_COUNT; ++unitIdx) {
-		if (unitBlocked(unitIdx)) {
+		Unit* unit = units[unitIdx];
+
+		if (!unit->getPosition().isValid() || unitBlocked(unitIdx)) {
 			continue;
 		}
-
-		Unit* unit = units[unitIdx];
 
 		if (posetion == unit->getPosetion()) {
 			int surroundingLevels = grid->getSurroundingLevels(unit->getPosition());
@@ -1113,10 +1116,13 @@ Node::Node() :
 //*************************************************************************************************************
 
 Node::~Node() {
-	if (state && MMAT_BUILD == action.getType()) {
+	//if (state && MMAT_BUILD == action.getType()) {
+	// Do not delete the turn state
+	if (PARENT_LABEL != label) {
 		delete state;
 		state = NULL;
 	}
+	//}
 
 	path.clear();
 }
@@ -1140,7 +1146,8 @@ Node* Node::createChild(
 		child->getState()->getGrid()->copy(state->getGrid());
 	}
 	else if (MMAT_MOVE == action.getType()) {
-		child->getState()->setGrid(state->getGrid());
+		//child->getState()->setGrid(state->getGrid());
+		child->getState()->getGrid()->copy(state->getGrid());
 	}
 
 	child->getState()->setMyBestUnit(state->getMyBestUnit());
@@ -1477,12 +1484,14 @@ MinimaxResult Minimax::maximize(Node* node, int unitIdx, int alpha, int beta) {
 		Node* child = node->createChild(unitIdx, actionIdx, node, node->getNodeDepth() + 1);
 		node->addChild(child);
 
+		int bestEnemyUnit = state->getEnemyBestUnit();
+
 		MinimaxResult minMaxRes;
-		if (MMAT_BUILD == node->getAction().getType() && unitIdx < 2) {
+		if (INVALID_INDEX == bestEnemyUnit || (MMAT_BUILD == node->getAction().getType() && unitIdx < 2)) {
 			minMaxRes = maximize(child, state->getMyBestUnit(), alpha, beta);
 		}
 		else {
-			minMaxRes = minimize(child, state->getEnemyBestUnit(), alpha, beta);
+			minMaxRes = minimize(child, bestEnemyUnit, alpha, beta);
 		}
 
 		if (minMaxRes.evaluationValue > res.evaluationValue) {
@@ -1641,7 +1650,7 @@ void Game::gameLoop() {
 
 void Game::getGameInput() {
 	if (USE_HARDCODED_INPUT) {
-		size = 7;
+		size = 6;
 		unitsPerPlayer = 2;
 	}
 	else {
@@ -1666,52 +1675,26 @@ void Game::getTurnInput() {
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
 
-				if (0 == rowIdx && 0 == colIdx) { c = '.'; };
 				if (0 == rowIdx && 1 == colIdx) { c = '.'; };
-				if (0 == rowIdx && 2 == colIdx) { c = '.'; };
-				if (0 == rowIdx && 3 == colIdx) { c = '4'; };
 				if (0 == rowIdx && 4 == colIdx) { c = '.'; };
-				if (0 == rowIdx && 5 == colIdx) { c = '.'; };
-				if (0 == rowIdx && 6 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 0 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 1 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 2 == colIdx) { c = '4'; };
-				if (1 == rowIdx && 3 == colIdx) { c = '3'; };
-				if (1 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (1 == rowIdx && 5 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 6 == colIdx) { c = '.'; };
-				if (2 == rowIdx && 0 == colIdx) { c = '.'; };
-				if (2 == rowIdx && 1 == colIdx) { c = '2'; };
-				if (2 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (1 == rowIdx && 1 == colIdx) { c = '1'; };
+				if (1 == rowIdx && 2 == colIdx) { c = '.'; };
+				if (1 == rowIdx && 3 == colIdx) { c = '.'; };
+				if (1 == rowIdx && 4 == colIdx) { c = '2'; };
+				if (2 == rowIdx && 1 == colIdx) { c = '1'; };
 				if (2 == rowIdx && 3 == colIdx) { c = '3'; };
-				if (2 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (2 == rowIdx && 6 == colIdx) { c = '.'; };
-				if (3 == rowIdx && 0 == colIdx) { c = '2'; };
-				if (3 == rowIdx && 1 == colIdx) { c = '4'; };
+				if (2 == rowIdx && 4 == colIdx) { c = '3'; };
+				if (2 == rowIdx && 5 == colIdx) { c = '2'; };
+				if (3 == rowIdx && 0 == colIdx) { c = '1'; };
 				if (3 == rowIdx && 2 == colIdx) { c = '4'; };
-				if (3 == rowIdx && 3 == colIdx) { c = '4'; };
-				if (3 == rowIdx && 4 == colIdx) { c = '4'; };
-				if (3 == rowIdx && 5 == colIdx) { c = '4'; };
-				if (3 == rowIdx && 6 == colIdx) { c = '2'; };
-				if (4 == rowIdx && 0 == colIdx) { c = '.'; };
-				if (4 == rowIdx && 2 == colIdx) { c = '4'; };
+				if (3 == rowIdx && 3 == colIdx) { c = '3'; };
+				if (3 == rowIdx && 4 == colIdx) { c = '3'; };
+				if (4 == rowIdx && 1 == colIdx) { c = '3'; };
 				if (4 == rowIdx && 3 == colIdx) { c = '3'; };
-				if (4 == rowIdx && 4 == colIdx) { c = '2'; };
-				if (4 == rowIdx && 6 == colIdx) { c = '.'; };
-				if (5 == rowIdx && 0 == colIdx) { c = '.'; };
-				if (5 == rowIdx && 1 == colIdx) { c = '.'; };
-				if (5 == rowIdx && 2 == colIdx) { c = '2'; };
-				if (5 == rowIdx && 3 == colIdx) { c = '3'; };
-				if (5 == rowIdx && 4 == colIdx) { c = '2'; };
-				if (5 == rowIdx && 5 == colIdx) { c = '.'; };
-				if (5 == rowIdx && 6 == colIdx) { c = '.'; };
-				if (6 == rowIdx && 0 == colIdx) { c = '.'; };
-				if (6 == rowIdx && 1 == colIdx) { c = '.'; };
-				if (6 == rowIdx && 2 == colIdx) { c = '.'; };
-				if (6 == rowIdx && 3 == colIdx) { c = '2'; };
-				if (6 == rowIdx && 4 == colIdx) { c = '.'; };
-				if (6 == rowIdx && 5 == colIdx) { c = '.'; };
-				if (6 == rowIdx && 6 == colIdx) { c = '.'; };
+				if (4 == rowIdx && 4 == colIdx) { c = '3'; };
+				if (5 == rowIdx && 1 == colIdx) { c = '1'; };
+				if (5 == rowIdx && 2 == colIdx) { c = '1'; };
+				if (5 == rowIdx && 3 == colIdx) { c = '1'; };
 			}
 			else {
 				cin >> c;
@@ -1733,10 +1716,10 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 4; unitY = 4; }
-			if (1 == unitIdx) { unitX = 5; unitY = 4; }
-			if (2 == unitIdx) { unitX = 5; unitY = 2; }
-			if (3 == unitIdx) { unitX = 1; unitY = 2; }
+			if (0 == unitIdx) { unitX = 2; unitY = 2; }
+			if (1 == unitIdx) { unitX = 3; unitY = 3; }
+			if (2 == unitIdx) { unitX = -1; unitY = -1; }
+			if (3 == unitIdx) { unitX = -1; unitY = -1; }
 		}
 		else {
 			cin >> unitX >> unitY;
@@ -1872,5 +1855,5 @@ int main(int argc, char** argv) {
 
 /*
 mapIndex=0
-seed=28456031
+seed=932265085
 */
