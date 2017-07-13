@@ -16,7 +16,7 @@ const int USE_HARDCODED_INPUT = 1;
 const int PRINT_MINIMAX_TREE_TO_FILE = 0;
 const int OUTPUT_FOR_DEBUG = 1;
 const int MINIMAX_DEPTH = 4;
-const int BREAK_TURN = 1;
+const int BREAK_TURN = 5;
 const int USE_RAND_HEURISTIC = 0;
 
 const int SCORE_WEIGHT = 800;
@@ -1675,32 +1675,54 @@ void Game::getTurnInput() {
 			if (USE_HARDCODED_INPUT) {
 				c = LEVEL_0;
 
-				if (0 == rowIdx && 1 == colIdx) { c = '.'; };
-				if (0 == rowIdx && 4 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 1 == colIdx) { c = '1'; };
-				if (1 == rowIdx && 2 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 3 == colIdx) { c = '.'; };
-				if (1 == rowIdx && 4 == colIdx) { c = '2'; };
-				if (2 == rowIdx && 1 == colIdx) { c = '1'; };
-				if (2 == rowIdx && 3 == colIdx) { c = '3'; };
-				if (2 == rowIdx && 4 == colIdx) { c = '3'; };
-				if (2 == rowIdx && 5 == colIdx) { c = '2'; };
-				if (3 == rowIdx && 0 == colIdx) { c = '1'; };
-				if (3 == rowIdx && 2 == colIdx) { c = '4'; };
-				if (3 == rowIdx && 3 == colIdx) { c = '3'; };
-				if (3 == rowIdx && 4 == colIdx) { c = '3'; };
-				if (4 == rowIdx && 1 == colIdx) { c = '3'; };
-				if (4 == rowIdx && 3 == colIdx) { c = '3'; };
-				if (4 == rowIdx && 4 == colIdx) { c = '3'; };
-				if (5 == rowIdx && 1 == colIdx) { c = '1'; };
-				if (5 == rowIdx && 2 == colIdx) { c = '1'; };
-				if (5 == rowIdx && 3 == colIdx) { c = '1'; };
+				if (0 == turnsCount) {
+
+				}
+
+				if (1 == turnsCount) {
+					if (0 == rowIdx && 2 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 2 == colIdx) { c = '1'; };
+				}
+
+				if (2 == turnsCount) {
+					if (0 == rowIdx && 2 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 1 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 2 == colIdx) { c = '2'; };
+				}
+
+				if (3 == turnsCount) {
+					if (0 == rowIdx && 2 == colIdx) { c = '2'; };
+					if (2 == rowIdx && 1 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 2 == colIdx) { c = '2'; };
+					if (3 == rowIdx && 0 == colIdx) { c = '1'; };
+				}
+
+				if (4 == turnsCount) {
+					if (0 == rowIdx && 2 == colIdx) { c = '2'; };
+					if (1 == rowIdx && 2 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 1 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 2 == colIdx) { c = '2'; };
+					if (3 == rowIdx && 0 == colIdx) { c = '1'; };
+					if (3 == rowIdx && 2 == colIdx) { c = '1'; };
+				}
+
+				if (5 == turnsCount) {
+					if (0 == rowIdx && 2 == colIdx) { c = '3'; };
+					if (1 == rowIdx && 2 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 1 == colIdx) { c = '1'; };
+					if (2 == rowIdx && 2 == colIdx) { c = '2'; };
+					if (3 == rowIdx && 0 == colIdx) { c = '1'; };
+					if (3 == rowIdx && 2 == colIdx) { c = '1'; };
+					if (4 == rowIdx && 4 == colIdx) { c = '1'; };
+				}
 			}
 			else {
 				cin >> c;
 
 				if (OUTPUT_FOR_DEBUG) {
-					if (LEVEL_0 != c) { cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };\n"; }
+					if (LEVEL_0 != c) {
+						cerr << "if (" << rowIdx << " == rowIdx && " << colIdx << " == colIdx) { c =\'" << c << "\'; };" << endl;
+					}
 				}
 			}
 
@@ -1716,10 +1738,47 @@ void Game::getTurnInput() {
 		int unitX, unitY;
 
 		if (USE_HARDCODED_INPUT) {
-			if (0 == unitIdx) { unitX = 2; unitY = 2; }
-			if (1 == unitIdx) { unitX = 3; unitY = 3; }
-			if (2 == unitIdx) { unitX = -1; unitY = -1; }
-			if (3 == unitIdx) { unitX = -1; unitY = -1; }
+			if (0 == turnsCount) {
+				if (0 == unitIdx) { unitX = 1; unitY = 1; }
+				if (1 == unitIdx) { unitX = 4; unitY = 1; }
+				if (2 == unitIdx) { unitX = -1; unitY = -1; }
+				if (3 == unitIdx) { unitX = 4; unitY = 2; }
+			}
+
+			if (1 == turnsCount) {
+				if (0 == unitIdx) { unitX = 1; unitY = 1; }
+				if (1 == unitIdx) { unitX = 3; unitY = 1; }
+				if (2 == unitIdx) { unitX = -1; unitY = -1; }
+				if (3 == unitIdx) { unitX = 4; unitY = 2; }
+			}
+
+			if (2 == turnsCount) {
+				if (0 == unitIdx) { unitX = 1; unitY = 1; }
+				if (1 == unitIdx) { unitX = 3; unitY = 1; }
+				if (2 == unitIdx) { unitX = -1; unitY = -1; }
+				if (3 == unitIdx) { unitX = 4; unitY = 2; }
+			}
+
+			if (3 == turnsCount) {
+				if (0 == unitIdx) { unitX = 2; unitY = 1; }
+				if (1 == unitIdx) { unitX = 3; unitY = 1; }
+				if (2 == unitIdx) { unitX = 1; unitY = 2; }
+				if (3 == unitIdx) { unitX = 4; unitY = 2; }
+			}
+
+			if (4 == turnsCount) {
+				if (0 == unitIdx) { unitX = 1; unitY = 1; }
+				if (1 == unitIdx) { unitX = 3; unitY = 1; }
+				if (2 == unitIdx) { unitX = -1; unitY = -1; }
+				if (3 == unitIdx) { unitX = 4; unitY = 2; }
+			}
+
+			if (5 == turnsCount) {
+				if (0 == unitIdx) { unitX = 2; unitY = 1; }
+				if (1 == unitIdx) { unitX = 3; unitY = 1; }
+				if (2 == unitIdx) { unitX = -1; unitY = -1; }
+				if (3 == unitIdx) { unitX = -1; unitY = -1; }
+			}
 		}
 		else {
 			cin >> unitX >> unitY;
